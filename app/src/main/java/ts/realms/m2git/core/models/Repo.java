@@ -230,13 +230,12 @@ public class Repo implements Comparable<Repo>, Serializable {
         }
     }
 
-    // 1. 注册过滤器（全局相当于安装Lfs软件）
-    // 2. 配置仓库（全部设置，只要没有gitattributes就不会执行）
-    //    仓库根目录下的 .git/config 文件
+    // 1. Register filters (global equivalent to installing lfs software)
+    // 2. Configure repo: all settings, only without .gitattributes nothing will execute
     //    [filter "lfs"]
     //        clean = jgit://builtin/lfs/clean
     //        smudge = jgit://builtin/lfs/smudge
-    // 3. 设置 .gitattributes（"*.txt filter=lfs"）
+    // 3. Set .gitattributes, e.g. "*.txt filter=lfs"
     public void applyLfs() {
         try {
             StoredConfig config = getStoredConfig();
@@ -568,7 +567,7 @@ public class Repo implements Comparable<Repo>, Serializable {
         if (tokenAccount != null && !tokenAccount.isEmpty() && tokenSecretKey != null && !tokenSecretKey.isEmpty()) {
             setUsername(tokenAccount);
             setPassword(tokenSecretKey);
-            Timber.tag("Repo").log(Log.INFO, "Set token: " + tokenAccount);
+
         }
     }
 

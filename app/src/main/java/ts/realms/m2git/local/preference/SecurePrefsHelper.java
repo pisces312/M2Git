@@ -62,7 +62,7 @@ public class SecurePrefsHelper {
                 throw new SecurePrefsException("missing keypair");
             }
             String prefsPassword = BasicFunctions.md5(keypair.getCertificate().toString());
-            Timber.w("pref password %s", prefsPassword);
+
             mSecurePrefs = new SecurePreferences(context, prefsPassword, SEC_PREFS_FILE_NAME);
 
         } catch (KeyStoreException | CertificateException | NoSuchAlgorithmException |

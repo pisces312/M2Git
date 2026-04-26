@@ -60,12 +60,12 @@ public class PreferenceHelper {
 
     public void setTokenAccount(String tokenAccount) {
         edit(mContext.getString(R.string.pref_key_personal_access_tokens_account), tokenAccount);
-        Timber.d("set root:%s", tokenAccount);
+
     }
 
     public void setTokenSecretKey(String tokenSecretKey) {
         edit(mContext.getString(R.string.pref_key_personal_access_tokens_secret_key), tokenSecretKey);
-        Timber.d("set tokenSecretKey:%s", tokenSecretKey);
+
     }
 
     public String getWebdavHomeDir() {
@@ -92,7 +92,7 @@ public class PreferenceHelper {
 
     public void setWebdavUser(String user) {
         edit(mContext.getString(R.string.pref_key_webdav_user), user);
-        Timber.d("setWebdavUser:%s", user);
+
     }
 
     public String getWebdavPassword() {
