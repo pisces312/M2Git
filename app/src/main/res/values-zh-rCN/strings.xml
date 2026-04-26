@@ -177,10 +177,6 @@
     <string name="preference_personal_access_tokens_secret_key">Token 密钥</string>
     <string name="preference_credential_manager_summary">凭证管理器</string>
     <string name="title_activity_credential_manager">凭证管理器</string>
-
-    <!-- Crash reporting via ACRA -->
-    <string name="crash_toast_text">MGit 发生错误 - 正在获取用于崩溃报告的数据</string>
-
     <!-- Intent filters -->
     <string name="cloning">正在克隆…</string>
     <string name="importing">正在导入…</string>
