@@ -1,7 +1,6 @@
 package ts.realms.m2git.core.network.mws.fs;
 
-import com.google.common.cache.CacheBuilder;
-
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import io.milton.cache.CacheManager;
@@ -16,9 +15,13 @@ public class LocalCacheManager implements CacheManager {
 
     @Override
     public Map getMap(String name) {
-        return CacheBuilder.newBuilder()
-            .maximumSize(maximumWeightedCapacity)
-            .build().asMap();
+        final int cap = maximumWeightedCapacity;
+        return new LinkedHashMap(cap, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry eldest) {
+                return size() > cap;
+            }
+        };
     }
 
     public int getMaximumWeightedCapacity() {

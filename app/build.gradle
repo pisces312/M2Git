@@ -15,6 +15,9 @@ android {
         // compileSdk 应始终使用最新版本，但不会影响运行时行为。
         // targetSdk 决定了应用是否启用新系统的行为变化，更新时需充分测试。
         // minSdk 决定了应用的最低支持版本，设置过低可能增加开发和测试成本。
+
+        // ABI 按平台拆分，生成独立 APK（arm64=真机，x86_64=模拟器）
+        // 不用 ndk.abiFilters，改用 splits.abi
     }
 
     compileOptions {
@@ -40,6 +43,29 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix ".debug"
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    // 支持按需构建单个 ABI：./gradlew assembleRelease -PbuildAbi=arm64-v8a
+    // 不传 buildAbi 时默认构建全部（arm64-v8a + x86_64）
+    if (project.hasProperty('buildAbi')) {
+        splits.abi {
+            enable true
+            reset()
+            include project.property('buildAbi')
+            universalApk false
+        }
+    } else {
+        splits.abi {
+            enable true
+            reset()
+            include 'arm64-v8a', 'x86_64'
+            universalApk false
         }
     }
 
@@ -92,10 +118,10 @@ dependencies {
         exclude group: "org.eclipse.angus", module: "jakarta.mail"
         exclude group: "com.sun.mail", module: "jakarta.mail"
     }
-    implementation("xerces:xercesImpl:2.12.2") //  DefaultPropFindRequestFieldParser: Can't create default XMLReader; is system property org.xml.sax.driver set?
+    // xercesImpl removed: Android 31+ has built-in SAX parser, no need for external xerces
     implementation("org.slf4j:slf4j-log4j12:2.0.16")
     implementation("com.github.tony19:logback-android:3.0.0")  // No appenders could be found for logger
-    implementation("com.google.guava:guava:33.5.0-android")
+    // guava removed: LocalCacheManager now uses LinkedHashMap instead of CacheBuilder
 
     // ViewModel and LiveData
     implementation "androidx.lifecycle:lifecycle-viewmodel:2.7.0"

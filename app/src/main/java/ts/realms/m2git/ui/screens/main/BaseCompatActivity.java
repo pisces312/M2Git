@@ -52,9 +52,9 @@ public class BaseCompatActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        setTheme(Profile.getThemeResource(getApplicationContext()));
         super.onCreate(savedInstanceState);
         BasicFunctions.setActiveActivity(this);
-        setTheme(Profile.getThemeResource(getApplicationContext()));
         updateLocale(Profile.useEnglishLocale(getApplicationContext()));
     }
 

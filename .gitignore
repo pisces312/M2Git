@@ -50,3 +50,5 @@ local.properties
 *.ipr
 app/src/main/resources
 *.hprof
+*.idsig
+.kotlin/
