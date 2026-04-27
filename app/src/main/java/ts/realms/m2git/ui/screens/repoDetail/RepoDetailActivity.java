@@ -82,6 +82,12 @@ public class RepoDetailActivity extends BaseCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mRepo = (Repo) getIntent().getSerializableExtra(Repo.TAG);
+        if (mRepo == null && getIntent().hasExtra("repo_id")) {
+            int repoId = getIntent().getIntExtra("repo_id", -1);
+            if (repoId != -1) {
+                mRepo = Repo.getRepoById(repoId);
+            }
+        }
         // aweful hack! workaround for null repo when returning from BranchChooser, but going to
         // shortly refactor passing in serialised repo, so not worth doing more to fix for now
         if (mRepo == null) {

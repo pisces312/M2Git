@@ -6,8 +6,12 @@ import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
 import android.database.Cursor;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Parcelable;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 import timber.log.Timber;
 import ts.realms.m2git.R;
@@ -176,7 +181,7 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
 
         BaseCompatActivity.onOptionDialogClicked[] dialog =
             new BaseCompatActivity.onOptionDialogClicked[]{() -> showRenameRepoDialog(context
-                , repo), () -> showRemoveRepoDialog(context, repo), null};
+                , repo), () -> showRemoveRepoDialog(context, repo), () -> createShortcut(context, repo), null};
         // 区分大小写
         final String remoteRaw = repo.getRemoteURL();
         final String remoteRawLowerCase = repo.getRemoteURL().toLowerCase();
@@ -184,7 +189,7 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
             !remoteRawLowerCase.equals("local repository") && remoteRawLowerCase.contains("http");
         if (repoHasHttpRemote) {
             //TODO : Transform ssh uri in http?
-            dialog[2] = () -> {
+            dialog[3] = () -> {
 
                 //remove git extension if present
                 String repoUrl = remoteRaw.endsWith(context.getString(R.string.git_extension)) ?
@@ -238,7 +243,7 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         }
 
         if (repoHasHttpRemote) {
-            List<String> stringList = new ArrayList<>(3);
+            List<String> stringList = new ArrayList<>(4);
             stringList.addAll(Arrays.asList(context.getResources().getStringArray(R.array.dialog_choose_repo_action_items)));
             stringList.add(context.getString(R.string.dialog_open_remote));
             String[] options_values = stringList.toArray(new String[0]);
@@ -248,6 +253,30 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
             context.showOptionsDialog(R.string.dialog_choose_option,
                 R.array.dialog_choose_repo_action_items, dialog);
         }
+    }
+
+    private void createShortcut(BaseCompatActivity context, final Repo repo) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            context.showToastMessage(R.string.error_unknown);
+            return;
+        }
+        ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
+        if (shortcutManager == null || !shortcutManager.isRequestPinShortcutSupported()) {
+            Toast.makeText(context, R.string.dialog_open_remote_no_app_available,
+                Toast.LENGTH_LONG).show();
+            return;
+        }
+        String shortcutId = String.format(Locale.US, "repo_%d", repo.getID());
+        Intent intent = new Intent(context, RepoDetailActivity.class);
+        intent.putExtra("repo_id", repo.getID());
+        intent.setAction(Intent.ACTION_VIEW);
+        ShortcutInfo shortcutInfo = new ShortcutInfo.Builder(context, shortcutId)
+            .setShortLabel(repo.getDisplayName())
+            .setLongLabel(repo.getRemoteURL())
+            .setIcon(Icon.createWithResource(context, R.mipmap.ic_launcher))
+            .setIntent(intent)
+            .build();
+        shortcutManager.requestPinShortcut(shortcutInfo, null);
     }
 
     private void showRemoveRepoDialog(BaseCompatActivity context, final Repo repo) {
