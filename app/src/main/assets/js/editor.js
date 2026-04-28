@@ -7,15 +7,17 @@
     var rawCodes = CodeLoader.getCode();
     $('#editor').text(rawCodes);
     var editorElm = document.getElementById("editor");
+    var theme = CodeLoader.getTheme();
     var editorOption = {
       lineNumbers: true,
       mode: lang,
-      theme: CodeLoader.getTheme(),
+      theme: theme,
       matchBrackets: true,
       lineWrapping: true,
       readOnly: true
     };
     editor = CodeMirror.fromTextArea(editorElm, editorOption);
+    editor.refresh();
   };
 
   window.setLang = function(l) {

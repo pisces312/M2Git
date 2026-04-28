@@ -46,10 +46,6 @@
         <item>亮色</item>
         <item>暗色</item>
     </string-array>
-    <string-array name="codemirror_theme_names">
-        <item>默认</item>
-        <item>午夜</item>
-    </string-array>
     <string-array name="theme_ids">
         <item>0</item>
         <item>1</item>
