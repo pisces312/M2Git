@@ -16,12 +16,9 @@ BUILD_TOOLS="D:/nili/dev/android_sdk/build-tools/34.0.0"
 # Auto-detect version from build.gradle
 VERSION=""
 GRADLE_FILE="$APP_DIR/build.gradle"
-# Convert to Windows path if in MSYS/MinGW
-if [[ "$GRADLE_FILE" == /d/* ]]; then
-    GRADLE_FILE="D:${GRADLE_FILE:2}"
-fi
-if command -v powershell >/dev/null 2>&1; then
-    VERSION=$(powershell -NoProfile -Command "\$content = Get-Content -Raw -Path '$GRADLE_FILE'; if (\$content -match 'versionName\s+\"([^\"]+)\"') { \$matches[1].Trim() }")
+if [[ -f "$GRADLE_FILE" ]]; then
+    # Extract versionName using grep + sed (Git Bash compatible)
+    VERSION=$(grep 'versionName' "$GRADLE_FILE" | head -1 | sed 's/.*versionName *"\([^"]*\)".*/\1/')
 fi
 if [[ -z "$VERSION" ]]; then
     VERSION="1.8.5"
