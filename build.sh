@@ -12,7 +12,21 @@ KEYSTORE="D:/nili/my-git-projects/my-backup/backup-settings/my-android-release.k
 KEYSTORE_PASS="${KEY_STORE_PASSWORD:-}"
 KEY_ALIAS="${KEY_ALIAS:-pisces312}"
 BUILD_TOOLS="D:/nili/dev/android_sdk/build-tools/34.0.0"
-VERSION="v1.8.4"
+
+# Auto-detect version from build.gradle
+VERSION=""
+GRADLE_FILE="$APP_DIR/build.gradle"
+# Convert to Windows path if in MSYS/MinGW
+if [[ "$GRADLE_FILE" == /d/* ]]; then
+    GRADLE_FILE="D:${GRADLE_FILE:2}"
+fi
+if command -v powershell >/dev/null 2>&1; then
+    VERSION=$(powershell -NoProfile -Command "\$content = Get-Content -Raw -Path '$GRADLE_FILE'; if (\$content -match 'versionName\s+\"([^\"]+)\"') { \$matches[1].Trim() }")
+fi
+if [[ -z "$VERSION" ]]; then
+    VERSION="1.8.5"
+fi
+VERSION="v$VERSION"
 
 # Validate ABI
 if [[ "$ABI" != "arm64" && "$ABI" != "x86_64" ]]; then
