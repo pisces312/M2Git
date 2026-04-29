@@ -77,34 +77,6 @@
             android:title="@string/preference_import_settings" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="webdav">
-        <SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:key="@string/pref_key_webdav_server"
-            android:summary="本地webdav服务器"
-            android:title="启用webdav" />
-        <EditTextPreference
-            android:key="@string/pref_key_webdav_home_dir"
-            android:persistent="true"
-            android:summary="%s"
-            android:title="Home" />
-        <EditTextPreference
-            android:key="@string/pref_key_webdav_port"
-            android:persistent="true"
-            android:summary="%s"
-            android:title="Port" />
-        <EditTextPreference
-            android:key="@string/pref_key_webdav_user"
-            android:persistent="true"
-            android:summary="%s"
-            android:title="User" />
-        <EditTextPreference
-            android:key="@string/pref_key_webdav_password"
-            android:persistent="true"
-            android:summary="%s"
-            android:title="Password" />
-    </PreferenceCategory>
-
     <PreferenceCategory android:title="@string/pref_category_title_about">
         <Preference
             android:key="@string/pref_key_send_feedback"

@@ -58,8 +58,6 @@ open class MainApplication : Application() {
             // System.exit(0);
         }
         mContext = applicationContext
-        // webdav服务跟随应用生命周期，在启动后设置为false。
-        PreferenceHelper.getInstance(this).setDefaultWebdavStatus()
         setAppVersionPref()
 
         try {

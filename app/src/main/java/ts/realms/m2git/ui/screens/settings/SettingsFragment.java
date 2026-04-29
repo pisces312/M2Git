@@ -1,12 +1,8 @@
 package ts.realms.m2git.ui.screens.settings;
 
-import android.Manifest;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -15,21 +11,18 @@ import android.os.Environment;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.TaskStackBuilder;
-import androidx.core.content.ContextCompat;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.PreferenceManager;
 import androidx.preference.PreferenceScreen;
-import androidx.preference.SwitchPreferenceCompat;
 
 import java.io.File;
 
 import ts.realms.m2git.R;
 import ts.realms.m2git.core.models.Repo;
-import ts.realms.m2git.core.network.mws.WebDavService;
+
 import ts.realms.m2git.local.preference.PreferenceHelper;
 import ts.realms.m2git.ui.components.fragments.ExploreRootDirActivity;
 import ts.realms.m2git.ui.components.fragments.PrivateKeyManageActivity;
@@ -66,7 +59,6 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
         }
 
         registerOnPreferenceClickListener();
-        registerBroadcastReceiver();
     }
 
 
@@ -92,24 +84,6 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
             // 已经设置持久化，所以框架会自己存储到文件中。
             pref.setSummaryProvider((Preference.SummaryProvider<EditTextPreference>) preference -> {
                 if (summary != null) {
-                    // 特殊情况，为webdav设置默认值
-                    if (preference.getKey().equals(getString(R.string.pref_key_webdav_home_dir)) && preference.getText() == null) {
-                        String defaultHome = Environment.getExternalStorageDirectory().toString();
-                        preferenceHelper.setWebdavHomeDir(defaultHome);
-                        return defaultHome;
-                    } else if (preference.getKey().equals(getString(R.string.pref_key_webdav_port)) && preference.getText() == null) {
-                        String defaultPort = "8080";
-                        preferenceHelper.setWebdavPort(defaultPort);
-                        return defaultPort;
-                    } else if (preference.getKey().equals(getString(R.string.pref_key_webdav_user)) && preference.getText() == null) {
-                        String defaultUser = "user";
-                        preferenceHelper.setWebdavUser(defaultUser);
-                        return defaultUser;
-                    } else if (preference.getKey().equals(getString(R.string.pref_key_webdav_password)) && preference.getText() == null) {
-                        String defaultPassword = "123456";
-                        preferenceHelper.setWebdavPassword(defaultPassword);
-                        return defaultPassword;
-                    }
                     // 正常情况下
                     return String.format(summary.toString(), preference.getText());
                 } else {
@@ -222,8 +196,6 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
         final String themePrefKey = getString(R.string.pref_key_use_theme_id);
         final String gravatarPrefKey = getString(R.string.pref_key_use_gravatar);
         final String useEnglishPrefKey = getString(R.string.pref_key_use_english);
-        final String webdavServerPrefKey = getString(R.string.pref_key_webdav_server);
-
         if (themePrefKey.equals(s) || useEnglishPrefKey.equals(s)) {
             // nice trick to recreate the back stack, to ensure existing activities onCreate() are
             // called to set new theme, courtesy of: http://stackoverflow.com/a/28799124/85472
@@ -234,59 +206,8 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
         } else if (gravatarPrefKey.equals(s)) {
             BasicFunctions.getImageLoader().clearMemoryCache();
             BasicFunctions.getImageLoader().clearDiskCache();
-        } else if (webdavServerPrefKey.equals(s)) {
-            // 默认false，异常中断后就不知道了，在app启动后初始化为默认
-            if (preferenceHelper.getWebdavStatus()) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    if (ContextCompat.checkSelfPermission(getContext(),
-                        Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                        // 权限被拒绝，立即关闭开关并提示
-                        SwitchPreferenceCompat switchPref = findPreference(webdavServerPrefKey);
-                        if (switchPref != null) {
-                            switchPref.setChecked(false);
-                        }
-                        preferenceHelper.setDefaultWebdavStatus();
-                        BasicFunctions.getActiveActivity().showToastMessage(
-                            "WebDAV服务需要通知权限来显示前台服务。请在系统设置中授予通知权限。"
-                        );
-                        return;
-                    }
-                }
-                Intent intent = new Intent(getContext(), WebDavService.class);
-                intent.setAction("START");
-                intent.putExtra("HOME", preferenceHelper.getWebdavHomeDir());
-                intent.putExtra("PORT", preferenceHelper.getWebdavPort());
-                intent.putExtra("USER", preferenceHelper.getWebdavUser());
-                intent.putExtra("PASSWORD", preferenceHelper.getWebdavPassword());
-                ContextCompat.startForegroundService(getContext(), intent);
-            } else {
-                Intent intent = new Intent(getContext(), WebDavService.class);
-                getContext().stopService(intent);
-            }
         }
     }
 
-    private void registerBroadcastReceiver() {
-        BroadcastReceiver serviceStatusReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if (WebDavService.ACTION_SERVICE_STOPPED.equals(intent.getAction())) {
-                    // 确保在主线程更新UI
-                    final String webdavServerPrefKey = getString(R.string.pref_key_webdav_server);
-                    SwitchPreferenceCompat switchPref = findPreference(webdavServerPrefKey);
-                    if (switchPref != null) {
-                        switchPref.setChecked(false);
-                    }
-                    preferenceHelper.setDefaultWebdavStatus();
-                }
-            }
-        };
 
-        // 注册本地广播接收器
-        Context context = getContext();
-        if (context != null) {
-            IntentFilter filter = new IntentFilter(WebDavService.ACTION_SERVICE_STOPPED);
-            LocalBroadcastManager.getInstance(context).registerReceiver(serviceStatusReceiver, filter);
-        }
-    }
 }

@@ -111,13 +111,6 @@ dependencies {
     implementation 'org.eclipse.jgit:org.eclipse.jgit.ssh.jsch:6.10.1.202505221210-r'
     implementation 'org.eclipse.jgit:org.eclipse.jgit.lfs:6.10.1.202505221210-r'
 
-    // mws
-    implementation("io.milton:milton-server-ce:4.0.5.2500") {
-        exclude group: "org.apache.oltu.oauth2", module: "org.apache.oltu.oauth2.common"
-        exclude group: "com.sun.activation", module: "jakarta.activation"
-        exclude group: "org.eclipse.angus", module: "jakarta.mail"
-        exclude group: "com.sun.mail", module: "jakarta.mail"
-    }
     // xercesImpl removed: Android 31+ has built-in SAX parser, no need for external xerces
     implementation("org.slf4j:slf4j-log4j12:2.0.16")
     implementation("com.github.tony19:logback-android:3.0.0")  // No appenders could be found for logger

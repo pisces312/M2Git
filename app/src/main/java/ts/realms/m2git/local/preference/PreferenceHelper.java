@@ -68,50 +68,6 @@ public class PreferenceHelper {
 
     }
 
-    public String getWebdavHomeDir() {
-        return getString(mContext.getString(R.string.pref_key_webdav_home_dir));
-    }
-
-    public void setWebdavHomeDir(String homeDir) {
-        edit(mContext.getString(R.string.pref_key_webdav_home_dir), homeDir);
-        Timber.d("setWebdavHomeDir:%s", homeDir);
-    }
-
-    public int getWebdavPort() {
-        return Integer.parseInt(getString(mContext.getString(R.string.pref_key_webdav_port)));
-    }
-
-    public void setWebdavPort(String port) {
-        edit(mContext.getString(R.string.pref_key_webdav_port), port);
-        Timber.d("setWebdavPort:%s", port);
-    }
-
-    public String getWebdavUser() {
-        return getString(mContext.getString(R.string.pref_key_webdav_user));
-    }
-
-    public void setWebdavUser(String user) {
-        edit(mContext.getString(R.string.pref_key_webdav_user), user);
-
-    }
-
-    public String getWebdavPassword() {
-        return getString(mContext.getString(R.string.pref_key_webdav_password));
-    }
-
-    public void setWebdavPassword(String password) {
-        edit(mContext.getString(R.string.pref_key_webdav_password), password);
-        Timber.d("setWebdavPassword:%s", "*".repeat(password.length()));
-    }
-
-    public boolean getWebdavStatus() {
-        return getBoolean(mContext.getString(R.string.pref_key_webdav_server));
-    }
-
-    public void setDefaultWebdavStatus() {
-        edit(mContext.getString(R.string.pref_key_webdav_server), false);
-    }
-
     protected SharedPreferences getSharedPrefs() {
         return mContext.getSharedPreferences(
             mContext.getString(R.string.preference_file_key), Context.MODE_PRIVATE);
