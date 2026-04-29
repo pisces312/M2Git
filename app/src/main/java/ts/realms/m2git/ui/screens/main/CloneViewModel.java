@@ -23,6 +23,7 @@ public class CloneViewModel extends AndroidViewModel {
     public MutableLiveData<String> localRepoNameError;
     public MutableLiveData<Boolean> visible;
     public boolean cloneRecursively;
+    public MutableLiveData<String> cloneDepth;
     private String remoteUrl;
 
     public CloneViewModel(Application application) {
@@ -33,6 +34,7 @@ public class CloneViewModel extends AndroidViewModel {
         this.localRepoNameError = new MutableLiveData<>();
         this.visible = new MutableLiveData<>();
         this.cloneRecursively = false;
+        this.cloneDepth = new MutableLiveData<>("");
         this.visible.setValue(false);
         this.initLocal.setValue(false);
     }
@@ -60,7 +62,16 @@ public class CloneViewModel extends AndroidViewModel {
             Timber.d("CLONE REPO %s %s [%b]", this.localRepoName.getValue(), this.remoteUrl,
                 this.cloneRecursively);
             Repo repo = Repo.createRepo(this.localRepoName.getValue(), this.remoteUrl, "");
-            CloneTask task = new CloneTask(repo, this.cloneRecursively, "", null);
+            int depth = 0;
+            try {
+                String depthStr = this.cloneDepth.getValue();
+                if (depthStr != null && !depthStr.isBlank()) {
+                    depth = Integer.parseInt(depthStr);
+                }
+            } catch (NumberFormatException e) {
+                Timber.w("Invalid clone depth, using full clone");
+            }
+            CloneTask task = new CloneTask(repo, this.cloneRecursively, depth, "", null);
             task.executeTask();
             this.setRemoteUrl("");
             show(false);

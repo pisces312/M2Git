@@ -114,7 +114,7 @@ public class RepoListActivity extends BaseCompatActivity {
                 } else {
                     final String cloningStatus = getString(R.string.cloning);
                     Repo mRepo = Repo.createRepo(repoName, repoUrlBuilder.toString(), cloningStatus);
-                    CloneTask task = new CloneTask(mRepo, true, cloningStatus, null);
+                    CloneTask task = new CloneTask(mRepo, true, 0, cloningStatus, null);
                     task.executeTask();
                 }
             }

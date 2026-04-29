@@ -27,12 +27,14 @@ public class CloneTask extends RepoRemoteOpTask implements MAsyncTask.AsyncTaskD
 
     private final AsyncTaskCallback mCallback;
     private final boolean mCloneRecursive;
+    private final int mCloneDepth;
     private final String mCloneStatusName;
 
-    public CloneTask(Repo repo, boolean cloneRecursive, String statusName,
+    public CloneTask(Repo repo, boolean cloneRecursive, int cloneDepth, String statusName,
                      AsyncTaskCallback callback) {
         super(repo);
         mCloneRecursive = cloneRecursive;
+        mCloneDepth = cloneDepth;
         mCloneStatusName = statusName;
         mCallback = callback;
     }
@@ -70,6 +72,9 @@ public class CloneTask extends RepoRemoteOpTask implements MAsyncTask.AsyncTaskD
             .setTransportConfigCallback(new SgitTransportCallback())
             .setDirectory(localRepo)
             .setCloneSubmodules(mCloneRecursive);
+        if (mCloneDepth > 0) {
+            cloneCommand.setDepth(mCloneDepth);
+        }
         setCredentials(cloneCommand);
         try {
             cloneCommand.call();
@@ -120,7 +125,7 @@ public class CloneTask extends RepoRemoteOpTask implements MAsyncTask.AsyncTaskD
         mRepo = Repo.createRepo(mRepo.getLocalPath(), mRepo.getRemoteURL(), mCloneStatusName);
         mRepo.setUsername(userName);
         mRepo.setPassword(password);
-        return new CloneTask(mRepo, mCloneRecursive, mCloneStatusName, mCallback);
+        return new CloneTask(mRepo, mCloneRecursive, mCloneDepth, mCloneStatusName, mCallback);
     }
 
     @Override
