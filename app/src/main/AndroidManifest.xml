@@ -153,6 +153,14 @@
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="ts.realms.m2git.ui.screens.settings.UserSettingsActivity" />
         </activity>
+        <activity
+            android:name="ts.realms.m2git.ui.screens.settings.SettingsBackupActivity"
+            android:label="Backup"
+            android:parentActivityName="ts.realms.m2git.ui.screens.settings.UserSettingsActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="ts.realms.m2git.ui.screens.settings.UserSettingsActivity" />
+        </activity>
 
         <provider
             android:name="androidx.core.content.FileProvider"

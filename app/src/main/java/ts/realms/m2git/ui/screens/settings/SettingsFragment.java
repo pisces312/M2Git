@@ -34,6 +34,7 @@ import ts.realms.m2git.local.preference.PreferenceHelper;
 import ts.realms.m2git.ui.components.fragments.ExploreRootDirActivity;
 import ts.realms.m2git.ui.components.fragments.PrivateKeyManageActivity;
 import ts.realms.m2git.ui.screens.main.RepoListActivity;
+import ts.realms.m2git.ui.screens.settings.SettingsBackupActivity;
 import ts.realms.m2git.utils.BasicFunctions;
 
 public class SettingsFragment extends PreferenceFragmentCompat implements Preference.OnPreferenceClickListener, SharedPreferences.OnSharedPreferenceChangeListener {
@@ -168,6 +169,16 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
                 Intent credentialActivityIntent = new Intent(context, CredentialActivity.class);
                 context.startActivity(credentialActivityIntent);
                 return true;
+            } else if (key.equals(getString(R.string.pref_key_export_settings))) {
+                Intent exportIntent = new Intent(context, SettingsBackupActivity.class);
+                exportIntent.putExtra("action", "export");
+                context.startActivity(exportIntent);
+                return true;
+            } else if (key.equals(getString(R.string.pref_key_import_settings))) {
+                Intent importIntent = new Intent(context, SettingsBackupActivity.class);
+                importIntent.putExtra("action", "import");
+                context.startActivity(importIntent);
+                return true;
             } else if (key.equals(getString(R.string.pref_key_send_feedback))) {
                 String feedbackUrl = context.getString(R.string.feedback_url);
                 Intent feedbackIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(feedbackUrl));
@@ -183,6 +194,8 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
         final Preference feedbackPreference = findPreference(getString(R.string.pref_key_send_feedback));
         final Preference repoPreference = findPreference(getString(R.string.pref_key_repo_root_location));
         final Preference credentialPreference = findPreference(getString(R.string.pref_key_credential_manager));
+        final Preference exportPreference = findPreference(getString(R.string.pref_key_export_settings));
+        final Preference importPreference = findPreference(getString(R.string.pref_key_import_settings));
 
         if (sshPreference != null) {
             sshPreference.setOnPreferenceClickListener(this);
@@ -195,6 +208,12 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
         }
         if (credentialPreference != null) {
             credentialPreference.setOnPreferenceClickListener(this);
+        }
+        if (exportPreference != null) {
+            exportPreference.setOnPreferenceClickListener(this);
+        }
+        if (importPreference != null) {
+            importPreference.setOnPreferenceClickListener(this);
         }
     }
 

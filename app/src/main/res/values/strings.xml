@@ -34,6 +34,8 @@
     <string name="action_save_diff">Save diff</string>
     <string name="action_send_report">Send report</string>
     <string name="action_undo">Undo</string>
+    <string name="action_export_settings">Export Settings</string>
+    <string name="action_import_settings">Import Settings</string>
 
     <!-- label msg -->
     <string name="label_ok">OK</string>
@@ -224,5 +226,18 @@
     <string name="pref_key_use_english" translatable="false">use.english</string>
     <string name="dialog_access_all_files_title">Access MGit to access all files</string>
     <string name="dialog_access_all_files_msg">To function correctly and be able to do things like finding modified files in your git working directory MGit needs permission to access all files.\n\nGrant permission?</string>
+    <string name="pref_key_export_settings" translatable="false">export_settings</string>
+    <string name="pref_key_import_settings" translatable="false">import_settings</string>
+    <string name="preference_export_settings">Export Settings</string>
+    <string name="preference_import_settings">Import Settings</string>
+    <string name="preference_export_settings_summary">Export all repos, credentials and settings to encrypted file</string>
+    <string name="preference_import_settings_summary">Import from encrypted backup file</string>
+    <string name="dialog_export_password_title">Set Export Password</string>
+    <string name="dialog_export_password_msg">Enter a password to encrypt the backup file:</string>
+    <string name="dialog_import_password_title">Enter Import Password</string>
+    <string name="dialog_import_password_msg">Enter the password to decrypt the backup file:</string>
+    <string name="export_success">Export successful: %1$d repos, %2$d credentials</string>
+    <string name="import_success">Import successful: %1$d repos, %2$d credentials skipped %3$d</string>
+    <string name="backup_error">Backup error: %s</string>
 
 </resources>
