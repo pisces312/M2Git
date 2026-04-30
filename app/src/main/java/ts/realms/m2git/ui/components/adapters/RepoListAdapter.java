@@ -28,12 +28,19 @@ import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 import timber.log.Timber;
 import ts.realms.m2git.R;
 import ts.realms.m2git.core.models.Repo;
+import ts.realms.m2git.core.models.RepoGroup;
 import ts.realms.m2git.local.database.RepoContract;
 import ts.realms.m2git.local.database.RepoDbManager;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity;
@@ -44,22 +51,66 @@ import ts.realms.m2git.utils.BasicFunctions;
 /**
  * Created by sheimi on 8/6/13.
  */
-public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager.RepoDbObserver,
+public class RepoListAdapter extends ArrayAdapter<RepoListAdapter.ListItem> implements RepoDbManager.RepoDbObserver,
     AdapterView.OnItemClickListener, AdapterView.OnItemLongClickListener {
 
     private static final int QUERY_TYPE_SEARCH = 0;
     private static final int QUERY_TYPE_QUERY = 1;
     private static final String TAG = RepoListAdapter.class.getSimpleName();
+
+    public static final int SORT_BY_NAME_ASC = 0;
+    public static final int SORT_BY_NAME_DESC = 1;
+    public static final int SORT_BY_DATE_ASC = 2;
+    public static final int SORT_BY_DATE_DESC = 3;
+
     private final DateFormat mCommitDateFormatter;
     private final RepoListActivity mActivity;
     private int mQueryType = QUERY_TYPE_QUERY;
     private String mSearchQueryString;
+    private int mSortMode = SORT_BY_NAME_ASC;
+    private final Set<Integer> mExpandedGroups = new HashSet<>();
+
+    public static class ListItem {
+        public static final int TYPE_GROUP = 0;
+        public static final int TYPE_REPO = 1;
+
+        public int type;
+        public Repo repo;
+        public RepoGroup group;
+        public int repoCount; // for group header
+        public boolean isExpanded;
+
+        public static ListItem group(RepoGroup group, int repoCount, boolean isExpanded) {
+            ListItem item = new ListItem();
+            item.type = TYPE_GROUP;
+            item.group = group;
+            item.repoCount = repoCount;
+            item.isExpanded = isExpanded;
+            return item;
+        }
+
+        public static ListItem repo(Repo repo) {
+            ListItem item = new ListItem();
+            item.type = TYPE_REPO;
+            item.repo = repo;
+            return item;
+        }
+    }
 
     public RepoListAdapter(Context context) {
         super(context, 0);
         RepoDbManager.registerDbObserver(RepoContract.RepoEntry.TABLE_NAME, this);
         mActivity = (RepoListActivity) context;
         mCommitDateFormatter = android.text.format.DateFormat.getDateFormat(context);
+    }
+
+    public void setSortMode(int sortMode) {
+        mSortMode = sortMode;
+        requery();
+    }
+
+    public int getSortMode() {
+        return mSortMode;
     }
 
     public void searchRepo(String query) {
@@ -83,17 +134,154 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
                 cursor = RepoDbManager.queryAllRepo();
                 break;
         }
-        List<Repo> repo = Repo.getRepoList(cursor);
-        Collections.sort(repo);
+        List<Repo> repos = Repo.getRepoList(cursor);
         cursor.close();
+
+        // Sort repos
+        sortRepos(repos);
+
+        // Build flat list with group headers
+        List<ListItem> items = buildGroupedList(repos);
+
         clear();
-        addAll(repo);
+        addAll(items);
         notifyDataSetChanged();
+    }
+
+    private void sortRepos(List<Repo> repos) {
+        Comparator<Repo> comparator;
+        switch (mSortMode) {
+            case SORT_BY_NAME_DESC:
+                comparator = (a, b) -> b.getDisplayName().compareToIgnoreCase(a.getDisplayName());
+                break;
+            case SORT_BY_DATE_ASC:
+                comparator = (a, b) -> {
+                    Date da = a.getLastCommitDate();
+                    Date db = b.getLastCommitDate();
+                    if (da == null && db == null) return 0;
+                    if (da == null) return 1;
+                    if (db == null) return -1;
+                    return da.compareTo(db);
+                };
+                break;
+            case SORT_BY_DATE_DESC:
+                comparator = (a, b) -> {
+                    Date da = a.getLastCommitDate();
+                    Date db = b.getLastCommitDate();
+                    if (da == null && db == null) return 0;
+                    if (da == null) return 1;
+                    if (db == null) return -1;
+                    return db.compareTo(da);
+                };
+                break;
+            case SORT_BY_NAME_ASC:
+            default:
+                comparator = (a, b) -> a.getDisplayName().compareToIgnoreCase(b.getDisplayName());
+                break;
+        }
+        Collections.sort(repos, comparator);
+    }
+
+    private List<ListItem> buildGroupedList(List<Repo> repos) {
+        List<ListItem> items = new ArrayList<>();
+
+        // Load all groups
+        Map<Integer, RepoGroup> groups = new HashMap<>();
+        Map<Integer, List<Repo>> groupRepos = new HashMap<>();
+        List<Repo> ungrouped = new ArrayList<>();
+
+        Cursor groupCursor = RepoDbManager.queryAllGroups();
+        if (groupCursor != null) {
+            groupCursor.moveToFirst();
+            while (!groupCursor.isAfterLast()) {
+                RepoGroup group = new RepoGroup(groupCursor);
+                groups.put(group.getId(), group);
+                groupRepos.put(group.getId(), new ArrayList<>());
+                groupCursor.moveToNext();
+            }
+            groupCursor.close();
+        }
+
+        // Distribute repos
+        for (Repo repo : repos) {
+            int gid = repo.getGroupId();
+            if (gid > 0 && groups.containsKey(gid)) {
+                groupRepos.get(gid).add(repo);
+            } else {
+                ungrouped.add(repo);
+            }
+        }
+
+        // Add ungrouped repos first
+        if (!ungrouped.isEmpty()) {
+            for (Repo repo : ungrouped) {
+                items.add(ListItem.repo(repo));
+            }
+        }
+
+        // Add grouped repos
+        List<RepoGroup> sortedGroups = new ArrayList<>(groups.values());
+        Collections.sort(sortedGroups, (a, b) -> Integer.compare(a.getSortOrder(), b.getSortOrder()));
+
+        for (RepoGroup group : sortedGroups) {
+            List<Repo> groupRepoList = groupRepos.get(group.getId());
+            boolean isExpanded = mExpandedGroups.contains(group.getId());
+            items.add(ListItem.group(group, groupRepoList != null ? groupRepoList.size() : 0, isExpanded));
+            if (isExpanded && groupRepoList != null) {
+                for (Repo repo : groupRepoList) {
+                    items.add(ListItem.repo(repo));
+                }
+            }
+        }
+
+        return items;
+    }
+
+    @Override
+    public int getViewTypeCount() {
+        return 2;
+    }
+
+    @Override
+    public int getItemViewType(int position) {
+        return getItem(position).type;
+    }
+
+    @Override
+    public boolean isEnabled(int position) {
+        return true;
     }
 
     @NonNull
     @Override
     public View getView(int position, View convertView, @NonNull ViewGroup parent) {
+        ListItem item = getItem(position);
+        if (item.type == ListItem.TYPE_GROUP) {
+            return getGroupView(position, convertView, parent);
+        }
+        return getRepoView(position, convertView, parent);
+    }
+
+    private View getGroupView(int position, View convertView, ViewGroup parent) {
+        GroupViewHolder holder;
+        if (convertView == null) {
+            convertView = LayoutInflater.from(getContext()).inflate(R.layout.repo_listitem_group, parent, false);
+            holder = new GroupViewHolder();
+            holder.groupArrow = convertView.findViewById(R.id.groupArrow);
+            holder.groupName = convertView.findViewById(R.id.groupName);
+            holder.groupCount = convertView.findViewById(R.id.groupCount);
+            convertView.setTag(holder);
+        } else {
+            holder = (GroupViewHolder) convertView.getTag();
+        }
+        ListItem item = getItem(position);
+        holder.groupArrow.setText(item.isExpanded ? "\u25BC" : "\u25B6");
+        holder.groupName.setText(item.group.getName());
+        holder.groupCount.setText("(" + item.repoCount + ")");
+        return convertView;
+    }
+
+    private View getRepoView(int position, View convertView, ViewGroup parent) {
         if (convertView == null) {
             convertView = newView(getContext(), parent);
         }
@@ -121,7 +309,7 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
 
     public void bindView(View view, int position) {
         RepoListItemHolder holder = (RepoListItemHolder) view.getTag();
-        final Repo repo = getItem(position);
+        final Repo repo = getItem(position).repo;
 
         holder.repoTitle.setText(repo.getDisplayName());
         holder.repoRemote.setText(repo.getRemoteURL());
@@ -157,7 +345,18 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
 
     @Override
     public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
-        Repo repo = getItem(position);
+        ListItem item = getItem(position);
+        if (item.type == ListItem.TYPE_GROUP) {
+            int groupId = item.group.getId();
+            if (mExpandedGroups.contains(groupId)) {
+                mExpandedGroups.remove(groupId);
+            } else {
+                mExpandedGroups.add(groupId);
+            }
+            requery();
+            return;
+        }
+        Repo repo = item.repo;
         if (repo.isExternal() && mActivity.checkAndRequestAccessAllFilesPermission(0)) {
             return;
         }
@@ -168,7 +367,9 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
 
     @Override
     public boolean onItemLongClick(AdapterView<?> adapterView, View view, int position, long id) {
-        final Repo repo = getItem(position);
+        ListItem item = getItem(position);
+        if (item.type == ListItem.TYPE_GROUP) return false;
+        final Repo repo = item.repo;
         if (!repo.getRepoStatus().equals(RepoContract.REPO_STATUS_NULL)) return false;
         Context context = getContext();
         if (context instanceof BaseCompatActivity) {
@@ -180,16 +381,19 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
     private void showRepoOptionsDialog(final BaseCompatActivity context, final Repo repo) {
 
         BaseCompatActivity.onOptionDialogClicked[] dialog =
-            new BaseCompatActivity.onOptionDialogClicked[]{() -> showRenameRepoDialog(context
-                , repo), () -> showRemoveRepoDialog(context, repo), () -> createShortcut(context, repo), null};
+            new BaseCompatActivity.onOptionDialogClicked[]{
+                () -> showRenameRepoDialog(context, repo),
+                () -> showRemoveRepoDialog(context, repo),
+                () -> createShortcut(context, repo),
+                () -> showMoveToGroupDialog(context, repo),
+                null};
         // 区分大小写
         final String remoteRaw = repo.getRemoteURL();
         final String remoteRawLowerCase = repo.getRemoteURL().toLowerCase();
         boolean repoHasHttpRemote =
             !remoteRawLowerCase.equals("local repository") && remoteRawLowerCase.contains("http");
         if (repoHasHttpRemote) {
-            //TODO : Transform ssh uri in http?
-            dialog[3] = () -> {
+            dialog[4] = () -> {
 
                 //remove git extension if present
                 String repoUrl = remoteRaw.endsWith(context.getString(R.string.git_extension)) ?
@@ -243,16 +447,57 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         }
 
         if (repoHasHttpRemote) {
-            List<String> stringList = new ArrayList<>(4);
+            List<String> stringList = new ArrayList<>(5);
             stringList.addAll(Arrays.asList(context.getResources().getStringArray(R.array.dialog_choose_repo_action_items)));
+            stringList.add(context.getString(R.string.dialog_move_to_group));
             stringList.add(context.getString(R.string.dialog_open_remote));
             String[] options_values = stringList.toArray(new String[0]);
 
             context.showOptionsDialog(R.string.dialog_choose_option, options_values, dialog);
         } else {
-            context.showOptionsDialog(R.string.dialog_choose_option,
-                R.array.dialog_choose_repo_action_items, dialog);
+            List<String> stringList = new ArrayList<>(4);
+            stringList.addAll(Arrays.asList(context.getResources().getStringArray(R.array.dialog_choose_repo_action_items)));
+            stringList.add(context.getString(R.string.dialog_move_to_group));
+            String[] options_values = stringList.toArray(new String[0]);
+
+            context.showOptionsDialog(R.string.dialog_choose_option, options_values, dialog);
         }
+    }
+
+    private void showMoveToGroupDialog(final BaseCompatActivity context, final Repo repo) {
+        Cursor cursor = RepoDbManager.queryAllGroups();
+        List<RepoGroup> groups = new ArrayList<>();
+        if (cursor != null) {
+            cursor.moveToFirst();
+            while (!cursor.isAfterLast()) {
+                groups.add(new RepoGroup(cursor));
+                cursor.moveToNext();
+            }
+            cursor.close();
+        }
+
+        List<String> options = new ArrayList<>();
+        options.add(context.getString(R.string.group_none));
+        for (RepoGroup g : groups) {
+            options.add(g.getName());
+        }
+
+        final int[] groupIds = new int[options.size()];
+        groupIds[0] = 0;
+        for (int i = 0; i < groups.size(); i++) {
+            groupIds[i + 1] = groups.get(i).getId();
+        }
+
+        BaseCompatActivity.onOptionDialogClicked[] listeners = new BaseCompatActivity.onOptionDialogClicked[options.size()];
+        for (int i = 0; i < options.size(); i++) {
+            final int gid = groupIds[i];
+            listeners[i] = () -> {
+                RepoDbManager.setRepoGroup(repo.getID(), gid);
+            };
+        }
+
+        context.showOptionsDialog(R.string.dialog_move_to_group_title,
+            options.toArray(new String[0]), listeners);
     }
 
     private void createShortcut(BaseCompatActivity context, final Repo repo) {
@@ -307,6 +552,12 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         public View commitMsgContainer;
         public TextView progressMsg;
         public ImageView cancelBtn;
+    }
+
+    private static class GroupViewHolder {
+        public TextView groupArrow;
+        public TextView groupName;
+        public TextView groupCount;
     }
 
 }

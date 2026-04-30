@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Menu;
@@ -20,6 +21,7 @@ import androidx.lifecycle.ViewModelProvider;
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 
 import timber.log.Timber;
@@ -27,6 +29,7 @@ import ts.realms.m2git.MainApplication;
 import ts.realms.m2git.R;
 import ts.realms.m2git.core.command.tasks.remote.CloneTask;
 import ts.realms.m2git.core.models.Repo;
+import ts.realms.m2git.core.models.RepoGroup;
 import ts.realms.m2git.core.network.ssh.PrivateKeyUtils;
 import ts.realms.m2git.core.network.transport.MGitHttpConnectionFactory;
 import ts.realms.m2git.databinding.ActivityMainBinding;
@@ -140,20 +143,108 @@ public class RepoListActivity extends BaseCompatActivity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         Intent intent;
-        if (item.getItemId() == R.id.action_new) {
+        int itemId = item.getItemId();
+        if (itemId == R.id.action_new) {
             showCloneView();
             return true;
-        } else if (item.getItemId() == R.id.action_import_repo) {
+        } else if (itemId == R.id.action_import_repo) {
             intent = new Intent(this, ImportRepositoryActivity.class);
             startActivityForResult(intent, REQUEST_IMPORT_REPO);
             forwardTransition();
             return true;
-        } else if (item.getItemId() == R.id.action_settings) {
+        } else if (itemId == R.id.action_settings) {
             intent = new Intent(this, UserSettingsActivity.class);
             startActivity(intent);
             return true;
+        } else if (itemId == R.id.action_sort) {
+            showSortDialog();
+            return true;
+        } else if (itemId == R.id.action_groups) {
+            showManageGroupsDialog();
+            return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void showSortDialog() {
+        String[] sortOptions = {
+            getString(R.string.sort_name_asc),
+            getString(R.string.sort_name_desc),
+            getString(R.string.sort_date_asc),
+            getString(R.string.sort_date_desc)
+        };
+        int currentSort = mRepoListAdapter.getSortMode();
+        showOptionsDialog(R.string.action_sort, sortOptions, new onOptionDialogClicked[]{
+            () -> mRepoListAdapter.setSortMode(RepoListAdapter.SORT_BY_NAME_ASC),
+            () -> mRepoListAdapter.setSortMode(RepoListAdapter.SORT_BY_NAME_DESC),
+            () -> mRepoListAdapter.setSortMode(RepoListAdapter.SORT_BY_DATE_ASC),
+            () -> mRepoListAdapter.setSortMode(RepoListAdapter.SORT_BY_DATE_DESC)
+        });
+    }
+
+    private void showManageGroupsDialog() {
+        Cursor cursor = RepoDbManager.queryAllGroups();
+        final List<RepoGroup> groups = new ArrayList<>();
+        if (cursor != null) {
+            cursor.moveToFirst();
+            while (!cursor.isAfterLast()) {
+                groups.add(new RepoGroup(cursor));
+                cursor.moveToNext();
+            }
+            cursor.close();
+        }
+
+        List<String> options = new ArrayList<>();
+        options.add(getString(R.string.label_create));
+        for (RepoGroup group : groups) {
+            options.add(group.getName());
+        }
+
+        onOptionDialogClicked[] listeners = new onOptionDialogClicked[options.size()];
+        listeners[0] = () -> showNewGroupDialog();
+        for (int i = 0; i < groups.size(); i++) {
+            final RepoGroup group = groups.get(i);
+            listeners[i + 1] = () -> showGroupActionsDialog(group);
+        }
+
+        showOptionsDialog(R.string.dialog_manage_groups_title,
+            options.toArray(new String[0]), listeners);
+    }
+
+    private void showNewGroupDialog() {
+        showEditTextDialog(R.string.dialog_new_group_title,
+            R.string.dialog_new_group_hint, R.string.label_create, name -> {
+                if (!name.trim().isEmpty()) {
+                    RepoDbManager.createGroup(name.trim());
+                }
+            });
+    }
+
+    private void showGroupActionsDialog(final RepoGroup group) {
+        String[] options = {
+            getString(R.string.label_rename),
+            getString(R.string.label_delete)
+        };
+        onOptionDialogClicked[] listeners = new onOptionDialogClicked[]{
+            () -> showRenameGroupDialog(group),
+            () -> showDeleteGroupDialog(group)
+        };
+        showOptionsDialog(R.string.dialog_choose_option, options, listeners);
+    }
+
+    private void showRenameGroupDialog(final RepoGroup group) {
+        showEditTextDialog(R.string.dialog_rename_group_title,
+            R.string.dialog_new_group_hint, R.string.label_rename, name -> {
+                if (!name.trim().isEmpty()) {
+                    RepoDbManager.updateGroup(group.getId(), name.trim());
+                }
+            });
+    }
+
+    private void showDeleteGroupDialog(final RepoGroup group) {
+        showMessageDialog(R.string.dialog_delete_group_title,
+            getString(R.string.dialog_delete_group_msg), R.string.label_delete,
+            (dialogInterface, i) -> RepoDbManager.deleteGroup(group.getId()));
     }
 
     public void configSearchAction(MenuItem searchItem) {

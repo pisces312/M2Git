@@ -94,6 +94,88 @@ public class RepoDbManager {
         updateRepo(repoId, values);
     }
 
+    public static void setRepoGroup(long repoId, int groupId) {
+        ContentValues values = new ContentValues();
+        if (groupId <= 0) {
+            values.putNull(RepoContract.RepoEntry.COLUMN_NAME_GROUP_ID);
+        } else {
+            values.put(RepoContract.RepoEntry.COLUMN_NAME_GROUP_ID, groupId);
+        }
+        updateRepo(repoId, values);
+    }
+
+    public static void setRepoSortOrder(long repoId, int sortOrder) {
+        ContentValues values = new ContentValues();
+        values.put(RepoContract.RepoEntry.COLUMN_NAME_SORT_ORDER, sortOrder);
+        updateRepo(repoId, values);
+    }
+
+    // ---- RepoGroup CRUD ----
+
+    public static long createGroup(String name) {
+        ContentValues values = new ContentValues();
+        values.put(RepoContract.RepoGroupEntry.COLUMN_NAME, name);
+        values.put(RepoContract.RepoGroupEntry.COLUMN_SORT_ORDER, getNextGroupSortOrder());
+        long id = getInstance().mWritableDB.insert(RepoContract.RepoGroupEntry.TABLE_NAME, null, values);
+        notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+        return id;
+    }
+
+    public static void updateGroup(long groupId, String name) {
+        ContentValues values = new ContentValues();
+        values.put(RepoContract.RepoGroupEntry.COLUMN_NAME, name);
+        String whereClause = RepoContract.RepoGroupEntry._ID + " = ?";
+        String[] whereArgs = {String.valueOf(groupId)};
+        getInstance().mWritableDB.update(RepoContract.RepoGroupEntry.TABLE_NAME, values,
+            whereClause, whereArgs);
+        notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+    }
+
+    public static void deleteGroup(long groupId) {
+        // Unassign repos from this group
+        ContentValues repoValues = new ContentValues();
+        repoValues.putNull(RepoContract.RepoEntry.COLUMN_NAME_GROUP_ID);
+        String repoWhere = RepoContract.RepoEntry.COLUMN_NAME_GROUP_ID + " = ?";
+        String[] repoArgs = {String.valueOf(groupId)};
+        getInstance().mWritableDB.update(RepoContract.RepoEntry.TABLE_NAME, repoValues,
+            repoWhere, repoArgs);
+
+        // Delete the group
+        String whereClause = RepoContract.RepoGroupEntry._ID + " = ?";
+        String[] whereArgs = {String.valueOf(groupId)};
+        getInstance().mWritableDB.delete(RepoContract.RepoGroupEntry.TABLE_NAME, whereClause,
+            whereArgs);
+        notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+    }
+
+    public static Cursor queryAllGroups() {
+        return getInstance().mReadableDB.query(true, RepoContract.RepoGroupEntry.TABLE_NAME,
+            RepoContract.RepoGroupEntry.ALL_COLUMNS, null, null, null, null,
+            RepoContract.RepoGroupEntry.COLUMN_SORT_ORDER + " ASC", null);
+    }
+
+    public static Cursor queryReposByGroup(long groupId) {
+        String whereClause = RepoContract.RepoEntry.COLUMN_NAME_GROUP_ID + " = ?";
+        String[] whereArgs = {String.valueOf(groupId)};
+        return getInstance().mReadableDB.query(true, RepoContract.RepoEntry.TABLE_NAME,
+            RepoContract.RepoEntry.ALL_COLUMNS, whereClause, whereArgs, null, null,
+            null, null);
+    }
+
+    private static int getNextGroupSortOrder() {
+        Cursor cursor = getInstance().mReadableDB.rawQuery(
+            "SELECT MAX(" + RepoContract.RepoGroupEntry.COLUMN_SORT_ORDER + ") FROM "
+                + RepoContract.RepoGroupEntry.TABLE_NAME, null);
+        int max = 0;
+        if (cursor.moveToFirst() && !cursor.isNull(0)) {
+            max = cursor.getInt(0);
+        }
+        cursor.close();
+        return max + 1;
+    }
+
+    // ---- Credential CRUD ----
+
     public static long createRepo(String localPath, String remoteURL, String status) {
         ContentValues values = new ContentValues();
         values.put(RepoContract.RepoEntry.COLUMN_NAME_LOCAL_PATH, localPath);
@@ -116,12 +198,6 @@ public class RepoDbManager {
         getInstance()._deleteRepo(id);
     }
 
-    //    我应该在设置中的安全中创建一个选项，《凭证管理器》
-    //    然后点击后弹出一个小窗口，里面可以添加、删除、关联
-    //    每当仓库需要的时候，先去检查凭证管理器是否有相关的凭证
-    //    如果没有相关的凭证就可以新建一个凭证，并将其置放到凭证管理器中。
-    //    凭证管理器需要的组件：一个弹出式的窗口、列表（有关联仓库）、修改是点击列表条目然后弹出新的窗口
-    //    然后修改tokens、secret以及关联仓库。
     public static long createCredential(String token_account, String token_secret) {
         long credentialId = -1;
         try (Cursor cursor = getInstance()._queryAllCredential()) {
@@ -155,7 +231,7 @@ public class RepoDbManager {
     public static void relateRepoWithCredential(long credentialId, String repo) {
         Cursor credential = getCredentialById(credentialId);
         if (credential == null || !credential.moveToFirst()) {
-            return; // Credential not found or cursor is empty
+            return;
         }
         int columnIndex = credential.getColumnIndex(RepoContract.RepoCredential.COLUMN_REL_REPO);
         String relRepoString = credential.getString(columnIndex);
@@ -175,7 +251,7 @@ public class RepoDbManager {
     public static void unrelateRepoWithCredential(long id, String repo) {
         Cursor credential = getCredentialById(id);
         if (credential == null || !credential.moveToFirst()) {
-            return; // Credential not found or cursor is empty
+            return;
         }
         int columnIndex = credential.getColumnIndex(RepoContract.RepoCredential.COLUMN_REL_REPO);
         String relRepoString = credential.getString(columnIndex);
@@ -212,7 +288,6 @@ public class RepoDbManager {
         try (Cursor cursor = RepoDbManager.queryAllCredential()) {
             Map<String, String> queryResult = Collections.emptyMap();
             if (cursor != null && cursor.moveToFirst()) {
-                // 循环遍历所有行
                 int rel_repoIndex = cursor.getColumnIndex(RepoContract.RepoCredential.COLUMN_REL_REPO);
                 int secretIndex = cursor.getColumnIndex(RepoContract.RepoCredential.COLUMN_TOKEN_SECRET);
                 int accountIndex = cursor.getColumnIndex(RepoContract.RepoCredential.COLUMN_TOKEN_ACCOUNT);
@@ -227,7 +302,7 @@ public class RepoDbManager {
                         break;
                     }
 
-                } while (cursor.moveToNext()); // 移动到下一行，如果成功则继续循环
+                } while (cursor.moveToNext());
             } else {
                 Timber.tag("DB").d("No credentials found.");
             }

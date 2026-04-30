@@ -8,6 +8,14 @@
         app:actionViewClass="android.widget.SearchView"
         app:showAsAction="always|collapseActionView" />
     <item
+        android:id="@+id/action_sort"
+        android:title="@string/action_sort"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_groups"
+        android:title="@string/action_groups"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_new"
         android:icon="@drawable/ic_content_new"
         android:title="@string/action_clone"

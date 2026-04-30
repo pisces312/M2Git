@@ -19,6 +19,8 @@
     <string name="action_mode_show_private_key">Show private key</string>
     <string name="action_mode_show_public_key">Show public key</string>
     <string name="action_mode_edit_key_password">Edit key password</string>
+    <string name="action_sort">Sort</string>
+    <string name="action_groups">Groups</string>
     <string name="action_feedback">Feedback</string>
     <string name="action_choose_language">Choose Language</string>
     <string name="action_mode_diff">Diff</string>
@@ -84,6 +86,20 @@
     <!-- Dialog Msg -->
     <string name="dialog_choose_branch_title">Choose Branch</string>
     <string name="dialog_choose_option">Choose option...</string>
+    <string name="dialog_move_to_group">Move to group</string>
+    <string name="dialog_move_to_group_title">Select group</string>
+    <string name="group_none">Ungrouped</string>
+    <string name="dialog_manage_groups_title">Manage Groups</string>
+    <string name="dialog_new_group_title">New Group</string>
+    <string name="dialog_new_group_hint">Group name</string>
+    <string name="dialog_rename_group_title">Rename Group</string>
+    <string name="dialog_delete_group_title">Delete Group</string>
+    <string name="dialog_delete_group_msg">Delete this group? Repos will be ungrouped.</string>
+    <string name="sort_name_asc">Name A-Z</string>
+    <string name="sort_name_desc">Name Z-A</string>
+    <string name="sort_date_asc">Date oldest first</string>
+    <string name="sort_date_desc">Date newest first</string>
+    <string name="error_rename_group_fail">Failed to rename group</string>
     <string name="dialog_rename_repo_title">Rename Repository</string>
     <string name="dialog_rename_repo_hint">Repository Name</string>
     <string name="dialog_delete_repo_title">Delete Confirmation</string>

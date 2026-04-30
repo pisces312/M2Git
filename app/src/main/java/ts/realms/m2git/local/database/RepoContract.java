@@ -14,6 +14,7 @@ public final class RepoContract {
     public static final String REPO_STATUS_NULL = "";
     public static final String REPO_ENTRY_DROP = "DROP TABLE IF EXISTS " + RepoEntry.TABLE_NAME;
     public static final String REPO_CREDENTIALS_DROP = "DROP TABLE IF EXISTS " + RepoCredential.TABLE_NAME;
+    public static final String REPO_GROUP_DROP = "DROP TABLE IF EXISTS " + RepoGroupEntry.TABLE_NAME;
     private static final String TEXT_TYPE = " TEXT ";
     private static final String INT_TYPE = " INTEGER ";
     private static final String PRIMARY_KEY_TYPE = INT_TYPE + "PRIMARY KEY " + "AUTOINCREMENT ";
@@ -29,7 +30,9 @@ public final class RepoContract {
             + RepoEntry.COLUMN_NAME_LATEST_COMMITTER_UNAME + TEXT_TYPE + COMMA_SEP
             + RepoEntry.COLUMN_NAME_LATEST_COMMITTER_EMAIL + TEXT_TYPE + COMMA_SEP
             + RepoEntry.COLUMN_NAME_LATEST_COMMIT_DATE + TEXT_TYPE + COMMA_SEP
-            + RepoEntry.COLUMN_NAME_LATEST_COMMIT_MSG + TEXT_TYPE
+            + RepoEntry.COLUMN_NAME_LATEST_COMMIT_MSG + TEXT_TYPE + COMMA_SEP
+            + RepoEntry.COLUMN_NAME_GROUP_ID + INT_TYPE + COMMA_SEP
+            + RepoEntry.COLUMN_NAME_SORT_ORDER + INT_TYPE
             + " )";
     public static final String REPO_CREDENTIALS_CREATE =
         "CREATE TABLE " + RepoCredential.TABLE_NAME + " ("
@@ -37,6 +40,12 @@ public final class RepoContract {
             + RepoCredential.COLUMN_TOKEN_ACCOUNT + TEXT_TYPE + COMMA_SEP
             + RepoCredential.COLUMN_TOKEN_SECRET + TEXT_TYPE + COMMA_SEP
             + RepoCredential.COLUMN_REL_REPO + TEXT_TYPE
+            + ")";
+    public static final String REPO_GROUP_CREATE =
+        "CREATE TABLE " + RepoGroupEntry.TABLE_NAME + " ("
+            + RepoGroupEntry._ID + PRIMARY_KEY_TYPE + COMMA_SEP
+            + RepoGroupEntry.COLUMN_NAME + TEXT_TYPE + COMMA_SEP
+            + RepoGroupEntry.COLUMN_SORT_ORDER + INT_TYPE
             + ")";
 
     public RepoContract() {
@@ -97,6 +106,18 @@ public final class RepoContract {
         return cursor.getString(columnIndex);
     }
 
+    public static int getGroupId(Cursor cursor) {
+        int columnIndex = cursor.getColumnIndex(RepoContract.RepoEntry.COLUMN_NAME_GROUP_ID);
+        if (cursor.isNull(columnIndex)) return 0;
+        return cursor.getInt(columnIndex);
+    }
+
+    public static int getSortOrder(Cursor cursor) {
+        int columnIndex = cursor.getColumnIndex(RepoContract.RepoEntry.COLUMN_NAME_SORT_ORDER);
+        if (cursor.isNull(columnIndex)) return 0;
+        return cursor.getInt(columnIndex);
+    }
+
     public static int getOneCredentialId(Cursor cursor) {
         if (cursor.isBeforeFirst()) {
             cursor.moveToFirst();
@@ -143,6 +164,8 @@ public final class RepoContract {
         public static final String COLUMN_NAME_LATEST_COMMITTER_EMAIL = "latest_committer_email";
         public static final String COLUMN_NAME_LATEST_COMMIT_DATE = "latest_commit_date";
         public static final String COLUMN_NAME_LATEST_COMMIT_MSG = "latest_commit_msg";
+        public static final String COLUMN_NAME_GROUP_ID = "group_id";
+        public static final String COLUMN_NAME_SORT_ORDER = "sort_order";
         public static final String[] ALL_COLUMNS = {
             _ID,
             COLUMN_NAME_LOCAL_PATH,
@@ -154,6 +177,19 @@ public final class RepoContract {
             COLUMN_NAME_LATEST_COMMITTER_EMAIL,
             COLUMN_NAME_LATEST_COMMIT_DATE,
             COLUMN_NAME_LATEST_COMMIT_MSG,
+            COLUMN_NAME_GROUP_ID,
+            COLUMN_NAME_SORT_ORDER,
+        };
+    }
+
+    public static abstract class RepoGroupEntry implements BaseColumns {
+        public static final String TABLE_NAME = "repo_group";
+        public static final String COLUMN_NAME = "name";
+        public static final String COLUMN_SORT_ORDER = "sort_order";
+        public static final String[] ALL_COLUMNS = {
+            _ID,
+            COLUMN_NAME,
+            COLUMN_SORT_ORDER,
         };
     }
 
@@ -161,7 +197,7 @@ public final class RepoContract {
         public static final String TABLE_NAME = "credentials";
         public static final String COLUMN_TOKEN_ACCOUNT = "token_account";
         public static final String COLUMN_TOKEN_SECRET = "token_secret";
-        public static final String COLUMN_REL_REPO = "rel_repo"; //COLUMN_REL_REPO使用列表文本存储例如："值1,值2,值3"。
+        public static final String COLUMN_REL_REPO = "rel_repo";
         public static final String[] ALL_COLUMNS = {
             _ID,
             COLUMN_TOKEN_ACCOUNT,

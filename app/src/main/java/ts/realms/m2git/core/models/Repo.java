@@ -79,6 +79,8 @@ public class Repo implements Comparable<Repo>, Serializable {
     private String mLastCommitterEmail;
     private Date mLastCommitDate;
     private String mLastCommitMsg;
+    private int mGroupId;
+    private int mSortOrder;
     private boolean isDeleted = false;
     // lazy load
     private Set<String> mRemotes;
@@ -96,6 +98,8 @@ public class Repo implements Comparable<Repo>, Serializable {
         mLastCommitterEmail = RepoContract.getLatestCommitterEmail(cursor);
         mLastCommitDate = RepoContract.getLatestCommitDate(cursor);
         mLastCommitMsg = RepoContract.getLatestCommitMsg(cursor);
+        mGroupId = RepoContract.getGroupId(cursor);
+        mSortOrder = RepoContract.getSortOrder(cursor);
     }
 
     public static Repo createRepo(String localPath, String remoteURL, String status) {
@@ -320,6 +324,22 @@ public class Repo implements Comparable<Repo>, Serializable {
         mUsername = username;
     }
 
+    public int getGroupId() {
+        return mGroupId;
+    }
+
+    public void setGroupId(int groupId) {
+        mGroupId = groupId;
+    }
+
+    public int getSortOrder() {
+        return mSortOrder;
+    }
+
+    public void setSortOrder(int sortOrder) {
+        mSortOrder = sortOrder;
+    }
+
     public void cancelTask() {
         RepoOpTask task = mRepoTasks.get(getID());
         if (task == null)
@@ -367,6 +387,8 @@ public class Repo implements Comparable<Repo>, Serializable {
         out.writeObject(mLastCommitterEmail);
         out.writeObject(mLastCommitDate);
         out.writeObject(mLastCommitMsg);
+        out.writeInt(mGroupId);
+        out.writeInt(mSortOrder);
     }
 
     private void readObject(java.io.ObjectInputStream in) throws IOException,
@@ -381,6 +403,8 @@ public class Repo implements Comparable<Repo>, Serializable {
         mLastCommitterEmail = (String) in.readObject();
         mLastCommitDate = (Date) in.readObject();
         mLastCommitMsg = (String) in.readObject();
+        mGroupId = in.readInt();
+        mSortOrder = in.readInt();
     }
 
     @Override

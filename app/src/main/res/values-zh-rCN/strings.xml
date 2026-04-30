@@ -17,6 +17,8 @@
     <string name="action_mode_show_private_key">显示私钥</string>
     <string name="action_mode_show_public_key">显示公钥</string>
     <string name="action_mode_edit_key_password">编辑密钥密码</string>
+    <string name="action_sort">排序</string>
+    <string name="action_groups">分组</string>
     <string name="action_feedback">反馈</string>
     <string name="action_choose_language">选择语言</string>
     <string name="action_mode_diff">比较</string>
@@ -80,6 +82,20 @@
     <!-- Dialog Msg -->
     <string name="dialog_choose_branch_title">选择分支</string>
     <string name="dialog_choose_option">选择选项…</string>
+    <string name="dialog_move_to_group">移动到分组</string>
+    <string name="dialog_move_to_group_title">选择分组</string>
+    <string name="group_none">未分组</string>
+    <string name="dialog_manage_groups_title">管理分组</string>
+    <string name="dialog_new_group_title">新建分组</string>
+    <string name="dialog_new_group_hint">分组名称</string>
+    <string name="dialog_rename_group_title">重命名分组</string>
+    <string name="dialog_delete_group_title">删除分组</string>
+    <string name="dialog_delete_group_msg">删除此分组？仓库将变为未分组。</string>
+    <string name="sort_name_asc">名称 升序</string>
+    <string name="sort_name_desc">名称 降序</string>
+    <string name="sort_date_asc">日期 最早优先</string>
+    <string name="sort_date_desc">日期 最新优先</string>
+    <string name="error_rename_group_fail">重命名分组失败</string>
     <string name="dialog_rename_repo_title">重命名仓库</string>
     <string name="dialog_rename_repo_hint">仓库名称</string>
     <string name="dialog_delete_repo_title">确认删除</string>

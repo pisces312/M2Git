@@ -6,6 +6,8 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 import java.text.StringCharacterIterator;
 
+import timber.log.Timber;
+
 /**
  * Created by sheimi on 8/6/13.
  * Modify by 霆枢 on 2025/12/04
@@ -13,7 +15,7 @@ import java.text.StringCharacterIterator;
  */
 public class RepoDbHelper extends SQLiteOpenHelper {
 
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
     private static final String DATABASE_NAME = "repo.db";
 
     public RepoDbHelper(Context context) {
@@ -48,12 +50,18 @@ public class RepoDbHelper extends SQLiteOpenHelper {
     public void onCreate(SQLiteDatabase sqLiteDatabase) {
         sqLiteDatabase.execSQL(RepoContract.REPO_ENTRY_CREATE);
         sqLiteDatabase.execSQL(RepoContract.REPO_CREDENTIALS_CREATE);
+        sqLiteDatabase.execSQL(RepoContract.REPO_GROUP_CREATE);
     }
 
     @Override
-    public void onUpgrade(SQLiteDatabase sqLiteDatabase, int i, int i2) {
-        sqLiteDatabase.execSQL(RepoContract.REPO_ENTRY_DROP);
-        sqLiteDatabase.execSQL(RepoContract.REPO_CREDENTIALS_DROP);
-        onCreate(sqLiteDatabase);
+    public void onUpgrade(SQLiteDatabase sqLiteDatabase, int oldVersion, int newVersion) {
+        Timber.d("Upgrading database from v%d to v%d", oldVersion, newVersion);
+        if (oldVersion < 2) {
+            sqLiteDatabase.execSQL("ALTER TABLE " + RepoContract.RepoEntry.TABLE_NAME
+                + " ADD COLUMN " + RepoContract.RepoEntry.COLUMN_NAME_GROUP_ID + " INTEGER DEFAULT NULL");
+            sqLiteDatabase.execSQL("ALTER TABLE " + RepoContract.RepoEntry.TABLE_NAME
+                + " ADD COLUMN " + RepoContract.RepoEntry.COLUMN_NAME_SORT_ORDER + " INTEGER DEFAULT 0");
+            sqLiteDatabase.execSQL(RepoContract.REPO_GROUP_CREATE);
+        }
     }
 }
