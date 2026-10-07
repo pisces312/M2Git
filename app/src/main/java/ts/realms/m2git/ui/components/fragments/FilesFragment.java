@@ -132,7 +132,7 @@ public class FilesFragment extends RepoDetailFragment {
                 args.putString(RepoFileOperationDialog.FILE_PATH,
                     file.getAbsolutePath());
                 args.putString(RepoFileOperationDialog.REPO_PATH,
-                    mRepo.getLocalPath());
+                    mRootDir.getAbsolutePath());
                 dialog.setArguments(args);
                 dialog.show(getFragmentManager(), "repo-file-op-dialog");
                 return true;

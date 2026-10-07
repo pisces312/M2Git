@@ -109,7 +109,14 @@ public class RepoFileOperationDialog extends BaseDialogFragment {
         }
         // URI 相对化可正确处理路径前缀；结果仍是绝对路径说明文件在仓库外，此时回退为绝对路径
         String relative = new File(repoPath).toURI().relativize(new File(filePath).toURI()).getPath();
-        return relative.startsWith("/") ? null : relative;
+        if (relative.startsWith("/")) {
+            return null;
+        }
+        // 长按目录项时 URI 末尾会带 "/"，剪贴板里去掉
+        if (relative.endsWith("/") && relative.length() > 1) {
+            relative = relative.substring(0, relative.length() - 1);
+        }
+        return relative;
     }
 
     private void showRemoveFileMessageDialog(int dialog_title, int dialog_msg, int dialog_positive_button, final DeleteOperationType deleteOperationType) {

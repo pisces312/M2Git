@@ -89,4 +89,9 @@ public class Profile {
         String useEnglishPrefKey = context.getString(R.string.pref_key_use_english);
         return getProfileSharedPreference(context).getBoolean(useEnglishPrefKey, false);
     }
+
+    public static void setUseEnglishLocale(Context context, boolean useEnglish) {
+        String useEnglishPrefKey = context.getString(R.string.pref_key_use_english);
+        getProfileSharedPreference(context).edit().putBoolean(useEnglishPrefKey, useEnglish).apply();
+    }
 }

@@ -5,14 +5,11 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.res.Configuration;
-import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
-import android.util.DisplayMetrics;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,6 +20,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat;
@@ -34,7 +32,6 @@ import com.nostra13.universalimageloader.core.ImageLoaderConfiguration;
 import com.nostra13.universalimageloader.utils.StorageUtils;
 
 import java.io.File;
-import java.util.Locale;
 
 import timber.log.Timber;
 import ts.realms.m2git.R;
@@ -55,22 +52,21 @@ public class BaseCompatActivity extends AppCompatActivity {
         setTheme(Profile.getThemeResource(getApplicationContext()));
         super.onCreate(savedInstanceState);
         BasicFunctions.setActiveActivity(this);
-        updateLocale(Profile.useEnglishLocale(getApplicationContext()));
+        syncEnglishPrefFromSystem();
     }
 
-    private void updateLocale(boolean useEnglishLocale) {
-        final Locale locale;
-        if (useEnglishLocale) {
-            locale = Locale.ENGLISH;
-        } else {
-            locale = Locale.getDefault();
+    /**
+     * 语言统一由 AppCompatActivity 自动应用 AppCompatDelegate.getApplicationLocales()（见
+     * attachBaseContext），这里只负责 API 33+ 时把系统「应用语言」的值反向同步进 use.english
+     * 偏好，供设置页勾选态显示；API < 33 的迁移在 MainApplication 中完成。
+     */
+    private void syncEnglishPrefFromSystem() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
         }
-        final Resources r = getResources();
-        final DisplayMetrics dm = r.getDisplayMetrics();
-        final Configuration c = r.getConfiguration();
-        if (c.locale == null || !c.locale.equals(locale)) {
-            c.locale = locale;
-            r.updateConfiguration(c, dm);
+        boolean useEnglish = !AppCompatDelegate.getApplicationLocales().isEmpty();
+        if (useEnglish != Profile.useEnglishLocale(getApplicationContext())) {
+            Profile.setUseEnglishLocale(getApplicationContext(), useEnglish);
         }
     }
 

@@ -10,7 +10,9 @@ import android.os.Environment;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.app.TaskStackBuilder;
+import androidx.core.os.LocaleListCompat;
 import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -196,13 +198,22 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
         final String themePrefKey = getString(R.string.pref_key_use_theme_id);
         final String gravatarPrefKey = getString(R.string.pref_key_use_gravatar);
         final String useEnglishPrefKey = getString(R.string.pref_key_use_english);
-        if (themePrefKey.equals(s) || useEnglishPrefKey.equals(s)) {
+        if (themePrefKey.equals(s)) {
             // nice trick to recreate the back stack, to ensure existing activities onCreate() are
             // called to set new theme, courtesy of: http://stackoverflow.com/a/28799124/85472
             TaskStackBuilder.create(getActivity())
                 .addNextIntent(new Intent(getActivity(), RepoListActivity.class))
                 .addNextIntent(getActivity().getIntent())
                 .startActivities();
+        } else if (useEnglishPrefKey.equals(s)) {
+            // 语言切换走 per-app locale，AppCompat 会自动应用并重建界面；
+            // API 33+ 上会同步写入系统「应用语言」设置
+            LocaleListCompat locales = sharedPreferences.getBoolean(s, false)
+                ? LocaleListCompat.forLanguageTags("en")
+                : LocaleListCompat.getEmptyLocaleList();
+            if (!locales.equals(AppCompatDelegate.getApplicationLocales())) {
+                AppCompatDelegate.setApplicationLocales(locales);
+            }
         } else if (gravatarPrefKey.equals(s)) {
             BasicFunctions.getImageLoader().clearMemoryCache();
             BasicFunctions.getImageLoader().clearDiskCache();
