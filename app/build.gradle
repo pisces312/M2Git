@@ -1,5 +1,31 @@
 apply plugin: 'com.android.application'
 
+// 依赖版本单一来源：dependencies 与 BuildConfig（设置页「关于」展示）共用
+// 注意：jgit 主包文件名 app/libs/org.eclipse.jgit-<此版本>-stripped.jar 须与 jgitVersion 同步（见 app/libs/make-stripped-jgit-jar.sh）
+def jgitVersion = '7.8.0.202609011348-r'
+def jschVersion = '2.28.7'
+
+// 构建溯源（参考 local-dream）：配置期经 providers.exec 读 git，configuration-cache 把这些调用当输入跟踪，
+// commit 变化时自动失效重建；无 .git 的源码树降级为空串而不是构建失败。执行期（doLast）不能调 providers.exec
+String gitInfo(String... args) {
+    try {
+        providers.exec {
+            commandLine('git', *args)
+            ignoreExitValue = true
+        }.standardOutput.asText.get().trim()
+    } catch (Exception ignored) {
+        ''
+    }
+}
+
+static String quoted(String v) {
+    '"' + v.replace('\\', '\\\\').replace('"', '\\"') + '"'
+}
+
+def gitCommit = gitInfo('rev-parse', 'HEAD').take(12)
+def gitCommitTime = gitInfo('log', '-1', '--pretty=%cI')
+def gitDirty = gitInfo('status', '--porcelain', '--ignore-submodules=dirty') ? true : false
+
 android {
     namespace 'ts.realms.m2git'
     defaultConfig {
@@ -10,6 +36,12 @@ android {
         minSdk 31
         versionCode 279
         versionName "1.8.5"
+
+        buildConfigField 'String', 'JGIT_VERSION', "\"${jgitVersion}\""
+        buildConfigField 'String', 'JSCH_VERSION', "\"${jschVersion}\""
+        buildConfigField 'String', 'GIT_COMMIT', quoted(gitCommit)
+        buildConfigField 'String', 'GIT_COMMIT_TIME', quoted(gitCommitTime)
+        buildConfigField 'boolean', 'GIT_DIRTY', gitDirty.toString()
 
         // compileSdk 应始终使用最新版本，但不会影响运行时行为。
         // targetSdk 决定了应用是否启用新系统的行为变化，更新时需充分测试。
@@ -88,7 +120,7 @@ configurations.configureEach {
     //  replace com.jcraft.jsch to com.github.mwiede:jsch
     resolutionStrategy.eachDependency { DependencyResolveDetails details ->
         if (details.requested.group == "com.jcraft" && details.requested.name == "jsch") {
-            details.useTarget("com.github.mwiede:jsch:0.2.11")
+            details.useTarget("com.github.mwiede:jsch:${jschVersion}")
         }
     }
     exclude module: 'httpclient'
@@ -109,11 +141,11 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'com.google.android.material:material:1.12.0'
 
-    // Jgit
-    //implementation 'org.eclipse.jgit:org.eclipse.jgit:6.10.1.202505221210-r'
-    implementation files('libs/org.eclipse.jgit-6.10.1.202505221210-r.jar')
-    implementation 'org.eclipse.jgit:org.eclipse.jgit.ssh.jsch:6.10.1.202505221210-r'
-    implementation 'org.eclipse.jgit:org.eclipse.jgit.lfs:6.10.1.202505221210-r'
+    // Jgit：主包 = 官方 jar 剥离 InflaterCache.class（补丁类在 app 源码，见 org/eclipse/jgit/{lib,compatible}/，
+    // 重新生成 jar 用 app/libs/make-stripped-jgit-jar.sh）
+    implementation files("libs/org.eclipse.jgit-${jgitVersion}-stripped.jar")
+    implementation "org.eclipse.jgit:org.eclipse.jgit.ssh.jsch:${jgitVersion}"
+    implementation "org.eclipse.jgit:org.eclipse.jgit.lfs:${jgitVersion}"
 
     // xercesImpl removed: Android 31+ has built-in SAX parser, no need for external xerces
     implementation("org.slf4j:slf4j-log4j12:2.0.16")
@@ -126,7 +158,7 @@ dependencies {
     implementation "androidx.lifecycle:lifecycle-runtime:2.7.0"
 
     implementation 'com.jakewharton.timber:timber:5.0.1'
-    implementation 'com.github.mwiede:jsch:0.2.11'  // max
+    implementation "com.github.mwiede:jsch:${jschVersion}"
     implementation 'commons-io:commons-io:2.16.1'
     implementation 'com.nostra13.universalimageloader:universal-image-loader:1.9.5'
     implementation 'com.scottyab:secure-preferences-lib:0.1.7'

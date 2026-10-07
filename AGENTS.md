@@ -13,6 +13,19 @@
 - AGP 9 内置 Kotlin：**不要再加** `org.jetbrains.kotlin.android` 插件或 `kotlinOptions{}`；Kotlin 编译选项跟随 `compileOptions`（Java 11）。
 - `android.nonFinalResIds` 已移除，R 字段为非 final：Java 代码**不要写** `case R.xxx` / `switch(getId())`。
 
+## 依赖升级与构建溯源（2026-10-07）
+
+- **jgit 主包是「官方 jar 剥离版」**：`app/libs/org.eclipse.jgit-*-stripped.jar` 由 `app/libs/make-stripped-jgit-jar.sh <版本号>` 生成（下载官方包后仅剥离 `InflaterCache.class`）；`InflaterCompat`/`InflaterCache` 补丁类在 `app/src/main/java/org/eclipse/jgit/{compatible,lib}/`。升级 = 改 build.gradle 顶部 `jgitVersion` + 重跑脚本。**禁止直接换 Maven 官方包**：Android libcore 对已 `end()` 的 Inflater 复用时抛 "inflater has been closed"（上游 issue #33），补丁类就是防它；历史教训：上游手工补丁 jar 与官方包哈希不同，曾差点被当成可随意替换的同名文件。
+- jgit 7.x 是 Java 17 字节码；minSdk 31 核心库 = OpenJDK 11，真机若遇 `NoSuchMethodError`（如 `Stream.toList`）→ 开 `coreLibraryDesugaring`。
+- jsch 版本只在 build.gradle 顶部 `jschVersion` 一处定义，同时喂给 `implementation`、`resolutionStrategy` 重映射（JGit 的 com.jcraft 传递依赖靠它换成 mwiede fork）和 BuildConfig。
+- 查库最新版本看 `repo1.maven.org/<group>/<artifact>/maven-metadata.xml`；search.maven.org 索引滞后（曾把 7.8.0 显示成 7.3.0）。
+- 构建溯源（`GIT_COMMIT`/`GIT_COMMIT_TIME`/`GIT_DIRTY`/库版本 → BuildConfig → 设置页「关于」）：在 build.gradle **配置期**经 `providers.exec` 读 git（configuration-cache 把 exec 当输入跟踪，commit 变化自动失效重建，参考 local-dream）。**不要**把 `providers.exec` 放进任务 doLast——执行期引用脚本对象会被 CC 拒绝；AGP 9 也不接受 Provider 形式的 `sourceSets.srcDir`。
+- adb 无线设备序列号含空格/括号（mDNS `_adb-tls-connect._tcp`），`adb -s` 必须加引号；设备随手机休眠从列表消失，安装前先 `adb devices` 确认。模拟器 pixel6 用后台长任务启动。
+
+## 模拟器上操作 MGit app
+
+- 已有项目级 skill：`.zcode/skills/mgit-emulator/SKILL.md`（模拟器装包、权限重授、仓库列表导航、uiautomator 定位、截图验证、debug 数据库直查，以及 MSYS 路径改写 / 拼音 IME 两个坑）。凡是「模拟器 + 操作/测试 mgit app」的任务，先读该 skill 再动手。
+
 ## Git 远程
 
 - `upstream` = Zacharia2/M2Git（原仓库，同步用：`git fetch upstream` 后比对 `main..upstream/main`）

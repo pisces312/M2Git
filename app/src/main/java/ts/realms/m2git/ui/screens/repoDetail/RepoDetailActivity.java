@@ -126,6 +126,10 @@ public class RepoDetailActivity extends BaseCompatActivity {
 
     private void setupViewPager() {
         mViewPager = findViewById(R.id.pager);
+        // R8 会剥离 PagerTitleStrip 的 @ViewPager$DecorView 运行时注解，ViewPager 反射
+        // 识别 decor 落空后标签条按 widthFactor=0 测量且永不 layout（release 整行消失），
+        // 故显式标记 isDecor
+        ((ViewPager.LayoutParams) findViewById(R.id.pager_title_strip).getLayoutParams()).isDecor = true;
         mTabItemPagerAdapter = new TabItemPagerAdapter(getSupportFragmentManager());
         mViewPager.setAdapter(mTabItemPagerAdapter);
         mViewPager.setOnPageChangeListener(mTabItemPagerAdapter);
