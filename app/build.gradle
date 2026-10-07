@@ -1,5 +1,10 @@
 apply plugin: 'com.android.application'
 
+// 依赖版本单一来源：dependencies 与 BuildConfig（设置页「关于」展示）共用
+// 注意：jgit 主包文件名 app/libs/org.eclipse.jgit-<此版本>-stripped.jar 须与 jgitVersion 同步（见 app/libs/make-stripped-jgit-jar.sh）
+def jgitVersion = '7.8.0.202609011348-r'
+def jschVersion = '2.28.7'
+
 android {
     namespace 'ts.realms.m2git'
     defaultConfig {
@@ -88,7 +93,7 @@ configurations.configureEach {
     //  replace com.jcraft.jsch to com.github.mwiede:jsch
     resolutionStrategy.eachDependency { DependencyResolveDetails details ->
         if (details.requested.group == "com.jcraft" && details.requested.name == "jsch") {
-            details.useTarget("com.github.mwiede:jsch:0.2.11")
+            details.useTarget("com.github.mwiede:jsch:${jschVersion}")
         }
     }
     exclude module: 'httpclient'
@@ -109,11 +114,11 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'com.google.android.material:material:1.12.0'
 
-    // Jgit
-    //implementation 'org.eclipse.jgit:org.eclipse.jgit:6.10.1.202505221210-r'
-    implementation files('libs/org.eclipse.jgit-6.10.1.202505221210-r.jar')
-    implementation 'org.eclipse.jgit:org.eclipse.jgit.ssh.jsch:6.10.1.202505221210-r'
-    implementation 'org.eclipse.jgit:org.eclipse.jgit.lfs:6.10.1.202505221210-r'
+    // Jgit：主包 = 官方 jar 剥离 InflaterCache.class（补丁类在 app 源码，见 org/eclipse/jgit/{lib,compatible}/，
+    // 重新生成 jar 用 app/libs/make-stripped-jgit-jar.sh）
+    implementation files("libs/org.eclipse.jgit-${jgitVersion}-stripped.jar")
+    implementation "org.eclipse.jgit:org.eclipse.jgit.ssh.jsch:${jgitVersion}"
+    implementation "org.eclipse.jgit:org.eclipse.jgit.lfs:${jgitVersion}"
 
     // xercesImpl removed: Android 31+ has built-in SAX parser, no need for external xerces
     implementation("org.slf4j:slf4j-log4j12:2.0.16")
@@ -126,7 +131,7 @@ dependencies {
     implementation "androidx.lifecycle:lifecycle-runtime:2.7.0"
 
     implementation 'com.jakewharton.timber:timber:5.0.1'
-    implementation 'com.github.mwiede:jsch:0.2.11'  // max
+    implementation "com.github.mwiede:jsch:${jschVersion}"
     implementation 'commons-io:commons-io:2.16.1'
     implementation 'com.nostra13.universalimageloader:universal-image-loader:1.9.5'
     implementation 'com.scottyab:secure-preferences-lib:0.1.7'
