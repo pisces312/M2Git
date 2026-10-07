@@ -80,7 +80,15 @@ open class MainApplication : Application() {
         val sharedPreference = getSharedPreferences(
             getString(R.string.preference_file_key), MODE_PRIVATE
         )
-        val version = BuildConfig.VERSION_NAME + "(" + BuildConfig.VERSION_CODE + ")"
+        val version = buildString {
+            append(BuildConfig.VERSION_NAME)
+            append('(').append(BuildConfig.VERSION_CODE).append(')')
+            append('\n').append(BuildConfig.GIT_COMMIT)
+            if (BuildConfig.GIT_DIRTY) append('*')
+            append(' ').append(BuildConfig.GIT_COMMIT_TIME.replace('T', ' ').take(16))
+            append('\n').append("JGit ").append(BuildConfig.JGIT_VERSION)
+            append('\n').append("jsch ").append(BuildConfig.JSCH_VERSION)
+        }
         sharedPreference.edit {
             putString(getString(R.string.preference_key_app_version), version)
         }

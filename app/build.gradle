@@ -5,6 +5,27 @@ apply plugin: 'com.android.application'
 def jgitVersion = '7.8.0.202609011348-r'
 def jschVersion = '2.28.7'
 
+// 构建溯源（参考 local-dream）：配置期经 providers.exec 读 git，configuration-cache 把这些调用当输入跟踪，
+// commit 变化时自动失效重建；无 .git 的源码树降级为空串而不是构建失败。执行期（doLast）不能调 providers.exec
+String gitInfo(String... args) {
+    try {
+        providers.exec {
+            commandLine('git', *args)
+            ignoreExitValue = true
+        }.standardOutput.asText.get().trim()
+    } catch (Exception ignored) {
+        ''
+    }
+}
+
+static String quoted(String v) {
+    '"' + v.replace('\\', '\\\\').replace('"', '\\"') + '"'
+}
+
+def gitCommit = gitInfo('rev-parse', 'HEAD').take(12)
+def gitCommitTime = gitInfo('log', '-1', '--pretty=%cI')
+def gitDirty = gitInfo('status', '--porcelain', '--ignore-submodules=dirty') ? true : false
+
 android {
     namespace 'ts.realms.m2git'
     defaultConfig {
@@ -15,6 +36,12 @@ android {
         minSdk 31
         versionCode 279
         versionName "1.8.5"
+
+        buildConfigField 'String', 'JGIT_VERSION', "\"${jgitVersion}\""
+        buildConfigField 'String', 'JSCH_VERSION', "\"${jschVersion}\""
+        buildConfigField 'String', 'GIT_COMMIT', quoted(gitCommit)
+        buildConfigField 'String', 'GIT_COMMIT_TIME', quoted(gitCommitTime)
+        buildConfigField 'boolean', 'GIT_DIRTY', gitDirty.toString()
 
         // compileSdk 应始终使用最新版本，但不会影响运行时行为。
         // targetSdk 决定了应用是否启用新系统的行为变化，更新时需充分测试。
