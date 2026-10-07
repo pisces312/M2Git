@@ -23,7 +23,11 @@
 
 - debug 构建使用默认 debug 证书（`~/.android/debug.keystore`）+ **v3-only** 签名（app/build.gradle 中 `enableV1Signing false` / `enableV2Signing false` / `enableV3Signing true`）。minSdk 31 无需 v1/v2，v3-only 是业界常规做法。
 - 覆盖安装报签名不一致 = 设备上的包不是当前 debug.keystore 签的（根目录 May 之前的旧 debug APK 用的是另一把钥匙，勿用来覆盖安装）。解法：`adb uninstall ts.realms.m2git.debug` 后重装（会清 debug 应用数据）。
-- release 签名经环境变量注入，见全局约定。
+- release 签名**一律用环境变量注入，零硬编码**（脚本与命令行同理，不写 keystore 路径/密码/别名明文）：
+  - `KEY_STORE` = keystore 路径（`D:\my-projects\my-backup\backup-settings\my-android-release.keystore`）
+  - `KEY_STORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`，`KEY_PASSWORD` 缺省回退 `KEY_STORE_PASSWORD`
+  - `build.sh` 只读上述环境变量（SDK 路径取 `ANDROID_HOME`，缺省 `D:\dev\android_sdk`）；构建前确认四项已设置。
+  - release 产物：gradle 产 unsigned 包 → build.sh zipalign + apksigner 签名，成品在仓库根目录 `M2Git-v*-<abi>-signed.apk`。
 
 ## 资源与多语言
 

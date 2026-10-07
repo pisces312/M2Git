@@ -15,10 +15,12 @@ ABI="${2:-arm64}"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_DIR="$PROJECT_DIR/app"
 BUILD_DIR="$APP_DIR/build/outputs/apk/release"
-KEYSTORE="D:/nili/my-git-projects/my-backup/backup-settings/my-android-release.keystore"
+# 签名一律走环境变量（见 AGENTS.md 签名约定），脚本内不硬编码密钥信息
+KEYSTORE="${KEY_STORE:-}"
 KEYSTORE_PASS="${KEY_STORE_PASSWORD:-}"
 KEY_ALIAS="${KEY_ALIAS:-pisces312}"
-BUILD_TOOLS="D:/nili/dev/android_sdk/build-tools/34.0.0"
+KEY_PASS="${KEY_PASSWORD:-$KEYSTORE_PASS}"
+BUILD_TOOLS="${ANDROID_HOME:-D:/dev/android_sdk}/build-tools/34.0.0"
 
 # Auto-detect version from build.gradle
 VERSION=""
@@ -62,6 +64,10 @@ echo "=== Building M2Git $VERSION for $BUILD_TYPE / $ABI ($ABI_FILTER) ==="
 
 # Signing: only needed for release
 if [[ "$BUILD_TYPE" == "release" ]]; then
+    if [[ -z "$KEYSTORE" ]]; then
+        echo "ERROR: KEY_STORE env var not set"
+        exit 1
+    fi
     if [[ -z "$KEYSTORE_PASS" ]]; then
         echo "ERROR: KEY_STORE_PASSWORD env var not set"
         exit 1
@@ -101,7 +107,7 @@ if [[ "$BUILD_TYPE" == "release" ]]; then
         --ks "$KEYSTORE" \
         --ks-pass "pass:$KEYSTORE_PASS" \
         --ks-key-alias "$KEY_ALIAS" \
-        --key-pass "pass:$KEYSTORE_PASS" \
+        --key-pass "pass:$KEY_PASS" \
         --out "$SIGNED_APK" \
         "$ALIGNED_APK"
 
