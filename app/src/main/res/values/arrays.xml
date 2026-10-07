@@ -14,6 +14,8 @@
         <item>Remove force from repository</item>
         <item>Make executable</item>
         <item>Make not executable</item>
+        <item>Copy relative path</item>
+        <item>Copy absolute path</item>
     </string-array>
     <string-array name="repo_operation_names">
         <item>Sync</item>
@@ -54,6 +56,14 @@
     <string-array name="theme_ids">
         <item>0</item>
         <item>1</item>
+    </string-array>
+    <string-array name="markdown_open_modes">
+        <item>Use built-in preview</item>
+        <item>Use system app (Recommended)</item>
+    </string-array>
+    <string-array name="markdown_open_mode_values">
+        <item>preview</item>
+        <item>system</item>
     </string-array>
 
 </resources>

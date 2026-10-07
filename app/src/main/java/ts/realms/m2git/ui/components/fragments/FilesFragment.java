@@ -2,11 +2,15 @@ package ts.realms.m2git.ui.components.fragments;
 
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ListView;
+import androidx.core.content.FileProvider;
 
 import java.io.File;
 import java.io.IOException;
@@ -76,8 +80,33 @@ public class FilesFragment extends RepoDetailFragment {
                     setCurrentDir(file);
                     return;
                 }
+                String fileName = file.getName().toLowerCase();
+                boolean isMdFile = fileName.endsWith(".md");
+                SharedPreferences prefs = getActivity().getSharedPreferences(
+                    getString(R.string.preference_file_key), 0);
+
+                if (isMdFile) {
+                    String mode = prefs.getString(getString(R.string.pref_key_markdown_open_mode), "system");
+                    if ("system".equals(mode)) {
+                        try {
+                            Uri uri = FileProvider.getUriForFile(
+                                getActivity(), getActivity().getPackageName() + ".fileprovider", file);
+                            Intent intent = new Intent(Intent.ACTION_VIEW);
+                            intent.setDataAndType(uri, "text/markdown");
+                            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                            PackageManager pm = getActivity().getPackageManager();
+                            if (!pm.queryIntentActivities(intent, 0).isEmpty()) {
+                                getActivity().startActivity(intent);
+                                return;
+                            }
+                        } catch (Exception e) {
+                            Timber.e(e, "Failed to open .md with system app, falling back to built-in preview");
+                        }
+                    }
+                }
+
                 String mime = FsUtils.getMimeType(file);
-                if (FsUtils.isTextMimeType(mime)) {
+                if (FsUtils.isTextMimeType(mime) || isMdFile) {
                     Intent intent = new Intent(getActivity(),
                         ViewFileActivity.class);
                     intent.putExtra(ViewFileActivity.TAG_FILE_NAME,
@@ -102,6 +131,8 @@ public class FilesFragment extends RepoDetailFragment {
                 Bundle args = new Bundle();
                 args.putString(RepoFileOperationDialog.FILE_PATH,
                     file.getAbsolutePath());
+                args.putString(RepoFileOperationDialog.REPO_PATH,
+                    mRepo.getLocalPath());
                 dialog.setArguments(args);
                 dialog.show(getFragmentManager(), "repo-file-op-dialog");
                 return true;

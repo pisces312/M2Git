@@ -19,6 +19,14 @@
             android:persistent="true"
             android:summary="@string/preference_eng_lang_summary"
             android:title="@string/preference_eng_lang" />
+        <ListPreference
+            android:key="@string/pref_key_markdown_open_mode"
+            android:persistent="true"
+            android:title="@string/preference_markdown_open_mode"
+            android:summary="@string/preference_markdown_open_mode_summary"
+            android:entries="@array/markdown_open_modes"
+            android:entryValues="@array/markdown_open_mode_values"
+            android:defaultValue="system" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/pref_category_title_git_profile">

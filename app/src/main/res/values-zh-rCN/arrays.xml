@@ -14,6 +14,12 @@
         <item>强制删除（git rm force）</item>
         <item>设为可执行</item>
         <item>设为不可执行</item>
+        <item>复制相对路径</item>
+        <item>复制绝对路径</item>
+    </string-array>
+    <string-array name="markdown_open_modes">
+        <item>使用内置预览</item>
+        <item>使用系统应用（推荐）</item>
     </string-array>
     <string-array name="repo_operation_names">
         <item>同步</item>

@@ -29,6 +29,7 @@
     <string name="action_reset">重置</string>
     <string name="action_toggle_drawer">开关抽屉</string>
     <string name="action_copy_commit_str">复制提交 Hash 值</string>
+    <string name="msg_copied_to_clipboard">已复制到剪贴板</string>
     <string name="action_create_external_repo">创建仓库</string>
     <string name="action_share_diff">分享 diff</string>
     <string name="action_save_diff">保存 diff</string>
@@ -171,6 +172,8 @@
 
     <string name="preference_repo_location">仓库存储目录</string>
     <string name="pref_category_title_general">常规</string>
+    <string name="preference_markdown_open_mode">Markdown 文件打开方式</string>
+    <string name="preference_markdown_open_mode_summary">选择打开 .md 文件的方式</string>
     <string name="action_select_root_dir">选择一个文件夹作为仓库存储目录</string>
     <string name="action_create_new_dir">新建文件夹</string>
     <string name="pref_category_title_git_profile">Git配置</string>
