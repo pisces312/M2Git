@@ -33,6 +33,7 @@ public class RepoFileOperationDialog extends BaseDialogFragment {
     private static final int MAKE_NOT_EXECUTABLE = 6;
     private static final int COPY_RELATIVE_PATH = 7;
     private static final int COPY_ABSOLUTE_PATH = 8;
+    private static final int COPY_FILE_NAME = 9;
     private static String mFilePath;
     private static String mRepoPath;
     private RepoDetailActivity mActivity;
@@ -84,13 +85,16 @@ public class RepoFileOperationDialog extends BaseDialogFragment {
                         mActivity.getRepoDelegate().updateIndex(mFilePath, UpdateIndexTask.calculateNewMode(newExecutableState));
                         break;
                     case COPY_RELATIVE_PATH:
-                    case COPY_ABSOLUTE_PATH: {
+                    case COPY_ABSOLUTE_PATH:
+                    case COPY_FILE_NAME: {
                         String path = mFilePath;
                         if (which == COPY_RELATIVE_PATH) {
                             String relative = toRelativePath(mRepoPath, mFilePath);
                             if (relative != null) {
                                 path = relative;
                             }
+                        } else if (which == COPY_FILE_NAME) {
+                            path = new File(mFilePath).getName();
                         }
                         ClipboardManager clipboard = (ClipboardManager) mActivity.getSystemService(Context.CLIPBOARD_SERVICE);
                         clipboard.setPrimaryClip(ClipData.newPlainText("mgit", path));

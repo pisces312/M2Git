@@ -16,6 +16,7 @@
         <item>Make not executable</item>
         <item>Copy relative path</item>
         <item>Copy absolute path</item>
+        <item>Copy file name</item>
     </string-array>
     <string-array name="repo_operation_names">
         <item>Sync</item>

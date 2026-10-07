@@ -16,6 +16,7 @@
         <item>设为不可执行</item>
         <item>复制相对路径</item>
         <item>复制绝对路径</item>
+        <item>复制文件名</item>
     </string-array>
     <string-array name="markdown_open_modes">
         <item>使用内置预览</item>
