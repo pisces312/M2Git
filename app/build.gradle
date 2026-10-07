@@ -34,8 +34,8 @@ android {
         //noinspection ExpiredTargetSdkVersion
         targetSdk 31
         minSdk 31
-        versionCode 279
-        versionName "1.8.5"
+        versionCode 280
+        versionName "1.8.6-pisces312"
 
         buildConfigField 'String', 'JGIT_VERSION', "\"${jgitVersion}\""
         buildConfigField 'String', 'JSCH_VERSION', "\"${jschVersion}\""
