@@ -1,5 +1,4 @@
 apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
 
 android {
     namespace 'ts.realms.m2git'
@@ -16,18 +15,14 @@ android {
         // targetSdk 决定了应用是否启用新系统的行为变化，更新时需充分测试。
         // minSdk 决定了应用的最低支持版本，设置过低可能增加开发和测试成本。
 
-        // ABI 按平台拆分，生成独立 APK（arm64=真机，x86_64=模拟器）
-        // 不用 ndk.abiFilters，改用 splits.abi
+        // ABI：默认仅构建 arm64-v8a（真机与模拟器通用，模拟器经 ARM 转译可直接运行 arm 版）
+        // 不用 ndk.abiFilters，改用 splits.abi；需要其他 ABI 时用 -PbuildAbi 手动指定
     }
 
     compileOptions {
         encoding = 'utf-8'
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = "11"
     }
 
     buildFeatures {
@@ -38,6 +33,15 @@ android {
 
     lint {
         abortOnError false
+    }
+
+    // debug 签名约定：默认 debug 证书（~/.android/debug.keystore）+ v3-only（minSdk 31 无需 v1/v2）
+    signingConfigs {
+        debug {
+            enableV1Signing false
+            enableV2Signing false
+            enableV3Signing true
+        }
     }
 
     buildTypes {
@@ -52,7 +56,7 @@ android {
     }
 
     // 支持按需构建单个 ABI：./gradlew assembleRelease -PbuildAbi=arm64-v8a
-    // 不传 buildAbi 时默认构建全部（arm64-v8a + x86_64）
+    // 不传 buildAbi 时默认仅构建 arm64-v8a
     if (project.hasProperty('buildAbi')) {
         splits.abi {
             enable true
@@ -64,7 +68,7 @@ android {
         splits.abi {
             enable true
             reset()
-            include 'arm64-v8a', 'x86_64'
+            include 'arm64-v8a'
             universalApk false
         }
     }
