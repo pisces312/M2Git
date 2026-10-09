@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  工具栏「按标签筛选」的 action view。存在的原因只有一个：默认 ActionBar 不暴露菜单项自己的
+  View，而弹窗要锚在图标上，RepoListActivity 得通过 MenuItemCompat.getActionView() 拿到它。
+  点击也由它自己接管（配了 actionLayout 的菜单项不会再走 onOptionsItemSelected）。
+-->
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="?android:attr/actionBarSize"
+    android:layout_height="?android:attr/actionBarSize"
+    android:background="?android:attr/actionBarItemBackground"
+    android:contentDescription="@string/action_tag_filter"
+    android:scaleType="center"
+    app:srcCompat="@drawable/ic_action_filter_tags" />

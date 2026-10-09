@@ -19,7 +19,7 @@
     <string name="action_mode_edit_key_password">编辑密钥密码</string>
     <string name="action_sort">排序</string>
     <string name="action_tags">标签</string>
-    <string name="action_filter_tags">筛选</string>
+    <string name="action_tag_filter">按标签筛选</string>
     <string name="action_feedback">反馈</string>
     <string name="action_choose_language">选择语言</string>
     <string name="action_mode_diff">比较</string>
@@ -86,7 +86,6 @@
     <string name="dialog_choose_option">选择选项…</string>
     <string name="label_edit_tags">编辑标签</string>
     <string name="dialog_edit_tags_title">编辑标签</string>
-    <string name="dialog_filter_tags_title">按标签筛选</string>
     <string name="dialog_manage_tags_title">管理标签</string>
     <string name="dialog_new_tag_title">新建标签</string>
     <string name="dialog_new_tag_hint">标签名称</string>

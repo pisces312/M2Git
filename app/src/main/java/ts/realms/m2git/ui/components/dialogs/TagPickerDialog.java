@@ -65,7 +65,9 @@ public final class TagPickerDialog {
         // 渲染抽成静态自调用方法而不是局部 Runnable：局部 Runnable 在自己的初始化器里
         // 被（哪怕是更内层的）lambda 引用javac 一律报「可能尚未初始化」，编译不过（实测）。
         // 方法自调用没有这个问题。
-        renderOptions(context, checkList, provider, selected, showCounts, exclusiveUntagged);
+        // 对话框是「勾完点确定才生效」，所以这里不需要每次勾选就回调；工具栏弹窗走同一个
+        // 渲染方法，它传进来的回调是即时生效用的。
+        renderOptions(context, checkList, provider, selected, showCounts, exclusiveUntagged, null);
 
         /**
          * 本次「就地新建」出来的标签。没确认就关窗（取消 / 返回键 / 点窗外）要回滚：
@@ -91,7 +93,7 @@ public final class TagPickerDialog {
                 input.setText("");
                 hideKeyboard(context, input);
                 renderOptions(context, checkList, provider, selected, showCounts,
-                    exclusiveUntagged);
+                    exclusiveUntagged, null);
             });
         }
 
@@ -119,10 +121,16 @@ public final class TagPickerDialog {
      * 平时重画会丢掉列表的滚动位置，每点一个框都跳回顶部是没法用的。
      *
      * setChecked 在注册监听之前调用，所以重画不会触发监听器，自调用也不会递归。
+     *
+     * 工具栏弹窗共用这个方法（勾选即时生效），所以多一个 onChanged：每次勾选变化后回调一次，
+     * 让调用方决定是记下来等确定（对话框）还是立刻落库重算（弹窗）。
+     *
+     * @param onChanged 勾选变化回调，在（可能发生的）重画之后触发一次，不会漏也不会重；
+     *                  null = 不需要（对话框是点确定才生效的）。
      */
-    private static void renderOptions(Context context, LinearLayout checkList,
+    static void renderOptions(Context context, LinearLayout checkList,
         OptionsProvider provider, Set<Integer> selected, boolean showCounts,
-        boolean exclusiveUntagged) {
+        boolean exclusiveUntagged, Runnable onChanged) {
         checkList.removeAllViews();
         int minHeight = context.getResources().getDimensionPixelSize(R.dimen.general_min_height);
         for (final Tag tag : provider.load()) {
@@ -147,7 +155,10 @@ public final class TagPickerDialog {
                 }
                 if (displaced) {
                     renderOptions(context, checkList, provider, selected, showCounts,
-                        exclusiveUntagged);
+                        exclusiveUntagged, onChanged);
+                }
+                if (onChanged != null) {
+                    onChanged.run();
                 }
             });
             checkList.addView(box);

@@ -45,7 +45,7 @@ import ts.realms.m2git.local.preference.PreferenceHelper;
 import ts.realms.m2git.ui.components.adapters.RepoListAdapter;
 import ts.realms.m2git.ui.components.dialogs.DummyDialogListener;
 import ts.realms.m2git.ui.components.dialogs.ImportLocalRepoDialog;
-import ts.realms.m2git.ui.components.dialogs.TagPickerDialog;
+import ts.realms.m2git.ui.components.dialogs.TagFilterPopup;
 import ts.realms.m2git.ui.components.fragments.ExploreFileActivity;
 import ts.realms.m2git.ui.components.fragments.ImportRepositoryActivity;
 import ts.realms.m2git.ui.components.views.TagChipRenderer;
@@ -153,6 +153,7 @@ public class RepoListActivity extends BaseCompatActivity {
         getMenuInflater().inflate(R.menu.main, menu);
         MenuItem searchItem = menu.findItem(R.id.action_search);
         configSearchAction(searchItem);
+        configTagFilterAction(menu.findItem(R.id.action_tag_filter));
         return true;
     }
 
@@ -174,9 +175,6 @@ public class RepoListActivity extends BaseCompatActivity {
             return true;
         } else if (itemId == R.id.action_sort) {
             showSortDialog();
-            return true;
-        } else if (itemId == R.id.action_filter_tags) {
-            showFilterDialog();
             return true;
         } else if (itemId == R.id.action_tags) {
             showManageTagsDialog();
@@ -314,13 +312,28 @@ public class RepoListActivity extends BaseCompatActivity {
 
     // ---- 筛选 / 标签管理 ----
 
-    private void showFilterDialog() {
-        TagPickerDialog.show(this, R.string.dialog_filter_tags_title,
+    /**
+     * 工具栏上的「按标签筛选」：图标在放大镜与溢出三点之间，点它在图标正下方弹勾选列表。
+     * 菜单项配了 app:actionLayout —— 默认 ActionBar 不暴露菜单项自己的 View，而弹窗要锚在点击
+     * 位置，只能自己造一个 View 当锚点；代价是这个 item 的点击也由 action view 自己接管
+     * （onOptionsItemSelected 收不到它）。
+     */
+    private void configTagFilterAction(MenuItem item) {
+        if (item == null) return;
+        final View anchor = MenuItemCompat.getActionView(item);
+        if (anchor == null) return;
+        anchor.setOnClickListener(v -> showTagFilterPopup(anchor));
+    }
+
+    /**
+     * 弹窗里勾一个立刻筛一次，没有确定按钮 —— 与顶部筛选条点掉 chip 是同一条链路
+     * （setFilterSelection → 重查 → requery → 筛选条自动重画）。
+     */
+    private void showTagFilterPopup(View anchor) {
+        TagFilterPopup.show(this, anchor,
             mRepoListAdapter::getTagFilterOptions,
             mRepoListAdapter.getFilterTagIds(),
-            false,  // 筛选面板不建标签，避免「为了筛选而误建」
-            true,   // 带命中数：选之前就知道这一筛会剩多少
-            // 「无标签」与具体标签在「全部满足」下无解，让面板直接互斥掉，别让用户撞空结果；
+            // 「无标签」与具体标签在「全部满足」下无解，直接互斥掉，别让用户撞空结果；
             // 「任一满足」下两者是合法并集，不互斥。
             mRepoListAdapter.isMatchAll(),
             mRepoListAdapter::setFilterSelection);
