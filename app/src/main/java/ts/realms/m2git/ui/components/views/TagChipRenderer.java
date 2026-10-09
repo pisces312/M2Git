@@ -36,12 +36,17 @@ public final class TagChipRenderer {
     private TagChipRenderer() {
     }
 
+    /** 条目底部标签 chip 的点击回调。回到的是标签名，由调用方自己查 id。 */
+    public interface OnTagChipClicked {
+        void onTagChipClicked(String tagName);
+    }
+
     /**
      * 建一个标签 chip。
      *
      * @param filled  true = 实心底（筛选条里已选中的），false = 浅色底 + 描边（展示用）
-     * @param onClick 非 null 时 chip 自身可点击（筛选条点它即取消该筛选）；条目里的 chip
-     *                必须传 null —— ListView 的行内放可点击子 view 会抢走整行点击。
+     * @param onClick 非 null 时 chip 自身可点击（条目里点它即按该标签筛选，筛选条里点它即取消）。
+     *                只置 clickable，**不置 focusable** —— 见 {@link #fillTagRow} 的说明。
      */
     public static TextView createChip(Context context, String text, boolean filled,
         View.OnClickListener onClick) {
@@ -81,7 +86,6 @@ public final class TagChipRenderer {
 
         if (onClick != null) {
             chip.setClickable(true);
-            chip.setFocusable(true);
             chip.setOnClickListener(onClick);
         }
         return chip;
@@ -94,8 +98,14 @@ public final class TagChipRenderer {
      *
      * 没有标签时把整行连同外层 HorizontalScrollView 一起隐藏 —— 外层即使高度为 0 也仍然是行里的
      * 一个节点，留着它等于给 ListView 塞了个多余的子 view。
+     *
+     * chip 可点击但**不可聚焦**：AbsListView 的 ACTION_DOWN 只在 {@code !child.hasFocusable()}
+     * 时给这一行做 press 记账，而行里只要有一个可聚焦后代，整行的短按与长按会一起失效（真机与
+     * 模拟器实测）。hasFocusable() 查的是 focusable 标志而非 clickable，所以「可点但不可聚焦」
+     * 两者兼得：点 chip 走过滤，点行内其他区域照旧打开仓库 / 弹出行菜单。
      */
-    public static void fillTagRow(LinearLayout container, List<String> tagNames) {
+    public static void fillTagRow(LinearLayout container, List<String> tagNames,
+        OnTagChipClicked onChipClicked) {
         container.removeAllViews();
         boolean empty = tagNames == null || tagNames.isEmpty();
         int visibility = empty ? View.GONE : View.VISIBLE;
@@ -110,8 +120,9 @@ public final class TagChipRenderer {
         }
         if (empty) return;
         Context context = container.getContext();
-        for (String name : tagNames) {
-            container.addView(createChip(context, name, false, null));
+        for (final String name : tagNames) {
+            container.addView(createChip(context, name, false,
+                onChipClicked == null ? null : v -> onChipClicked.onTagChipClicked(name)));
         }
     }
 

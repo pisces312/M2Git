@@ -153,6 +153,20 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         requery();
     }
 
+    /**
+     * 条目里点标签 chip 走这里：chip 手里只有标签名，先用注册表换成 id 再筛。
+     * 查不到就什么都不做 —— 列表渲染用的名字全部来自 registry，查不到意味着标签刚被删掉、
+     * 这行还是 requery 之前的旧画面，此时按它筛选只会得到一个必然为空的结果。
+     */
+    public void toggleFilterByName(String tagName) {
+        for (Tag tag : mTagRegistry) {
+            if (tag.getName().equals(tagName)) {
+                toggleFilter(tag.getId());
+                return;
+            }
+        }
+    }
+
     /** 筛选条上点掉某个标签走这里。 */
     public void toggleFilter(int tagId) {
         if (mFilterTagIds.contains(tagId)) {
@@ -380,6 +394,10 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         // 它跳过整行的 press 记账，短按和长按会一起失效（真机 + 模拟器实测）。
         holder.tagRowScroll.setFocusable(false);
         holder.tagRowScroll.setFocusableInTouchMode(false);
+        // 保险：标签 chip 现在可点击（点了按该标签筛选），一旦将来谁把它们设成可聚焦，整行的
+        // 短按与长按会一起失效（原因见上面 tagRowScroll 那条注释）。这里直接把 tagRow 这一支
+        // 的可聚焦性挡掉，chip 的 clickable 不受影响。
+        holder.tagRow.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         view.setTag(holder);
         return view;
     }
@@ -390,7 +408,7 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
 
         holder.repoTitle.setText(repo.getDisplayName());
         holder.repoRemote.setText(repo.getRemoteURL());
-        TagChipRenderer.fillTagRow(holder.tagRow, repo.getTagNames());
+        TagChipRenderer.fillTagRow(holder.tagRow, repo.getTagNames(), this::toggleFilterByName);
 
         if (!repo.getRepoStatus().equals(RepoContract.REPO_STATUS_NULL)) {
             holder.commitMsgContainer.setVisibility(View.GONE);
