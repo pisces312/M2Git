@@ -122,5 +122,23 @@
             app:srcCompat="@drawable/ic_action_cancel" />
     </RelativeLayout>
 
+    <!--
+      标签行：单行横向滚动，不换行，超出 MAX_TAGS_IN_ROW 的折叠成 "+n"，这样条目高度可预测。
+      chip 本身不可点击（ListView 行内放可点击子 view 会抢走整行点击），筛选走顶部筛选条和对话框。
+      没有标签时 TagChipRenderer 把这个容器设为 GONE，条目回到未加标签时的高度。
+    -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/tagRow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/general_vertical_margin"
+            android:orientation="horizontal"
+            android:visibility="gone" />
+    </HorizontalScrollView>
 
 </LinearLayout>
