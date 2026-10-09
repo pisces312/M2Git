@@ -8,6 +8,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -99,15 +100,20 @@ public final class TagChipRenderer {
     }
 
     /**
-     * 渲染条目底部的标签行。没有标签时把容器整体隐藏，条目高度回到未加标签前的样子。
+     * 渲染条目底部的标签行。没有标签时把整行连同外层 HorizontalScrollView 一起隐藏 ——
+     * 外层即使高度为 0 也仍然是行里的一个节点，留着它等于给 ListView 塞了个多余的子 view。
      */
     public static void fillTagRow(LinearLayout container, List<String> tagNames) {
         container.removeAllViews();
-        if (tagNames == null || tagNames.isEmpty()) {
-            container.setVisibility(View.GONE);
-            return;
+        boolean empty = tagNames == null || tagNames.isEmpty();
+        int visibility = empty ? View.GONE : View.VISIBLE;
+        container.setVisibility(visibility);
+        // 只认 HorizontalScrollView 这一种外层：万一以后标签行不再套滚动容器，
+        // 无条件隐藏 parent 就会把整个条目的根布局关掉，那种 bug 排查起来很费劲。
+        if (container.getParent() instanceof HorizontalScrollView) {
+            ((View) container.getParent()).setVisibility(visibility);
         }
-        container.setVisibility(View.VISIBLE);
+        if (empty) return;
         Context context = container.getContext();
         int shown = Math.min(tagNames.size(), MAX_TAGS_IN_ROW);
         for (int i = 0; i < shown; i++) {

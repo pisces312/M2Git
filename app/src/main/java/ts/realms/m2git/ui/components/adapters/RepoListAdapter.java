@@ -368,6 +368,13 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         holder.progressMsg = view.findViewById(R.id.progressMsg);
         holder.cancelBtn = view.findViewById(R.id.cancelBtn);
         holder.tagRow = view.findViewById(R.id.tagRow);
+        holder.tagRowScroll = view.findViewById(R.id.tagRowScroll);
+        // HorizontalScrollView 的构造函数在 XML 属性应用完之后才调用 setFocusableInTouchMode(true)，
+        // 所以写在布局里的 focusable/focusableInTouchMode="false" 会被它覆盖 —— 必须在这里关掉。
+        // 只要行里存在可聚焦后代，AbsListView.onTouchEvent 的 child.hasFocusable() 就为真，
+        // 它跳过整行的 press 记账，短按和长按会一起失效（真机 + 模拟器实测）。
+        holder.tagRowScroll.setFocusable(false);
+        holder.tagRowScroll.setFocusableInTouchMode(false);
         view.setTag(holder);
         return view;
     }
@@ -660,5 +667,7 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         public TextView progressMsg;
         public ImageView cancelBtn;
         public LinearLayout tagRow;
+        /** 标签行的外层滚动容器；focusable 在 newView 里关掉，见那里的注释。 */
+        public View tagRowScroll;
     }
 }
