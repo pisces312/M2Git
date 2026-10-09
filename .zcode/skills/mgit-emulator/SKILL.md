@@ -1,6 +1,6 @@
 ---
 name: mgit-emulator
-description: 在 Android 模拟器（pixel6）上安装、操作、自动化测试 MGit/M2Git 应用时使用。涵盖装包、权限重授、仓库列表导航与标签筛选、UI 元素定位（uiautomator）、界面截图验证、debug 数据库直查直改、SAF 弹窗驱动，以及路径改写、中文 IME、长按注入失败、对话框被软键盘挪位等必踩的坑。触发词：模拟器 / pixel6 / emulator + mgit、UI 冒烟、复现 app 问题、adb 操作 app。
+description: 在 Android 模拟器（pixel6）上安装、操作、自动化测试 MGit/M2Git 应用时使用。涵盖装包、权限重授、仓库列表导航与标签筛选、UI 元素定位（uiautomator）、长按注入、界面截图验证、debug 数据库直查直改、SAF 弹窗驱动，以及路径改写、中文 IME、ListView 条目点击失效、对话框被软键盘挪位等必踩的坑。触发词：模拟器 / pixel6 / emulator + mgit、UI 冒烟、复现 app 问题、adb 操作 app。
 ---
 
 # 在模拟器上使用 MGit
@@ -59,9 +59,11 @@ sed 's/></>\n</g' wd.xml | grep -oE 'text="[^"]+"[^>]*bounds="\[[0-9]+,[0-9]+\]\
 
 1. **Git Bash 路径改写**：adb 参数里的 `/sdcard/...` 会被 MSYS 改写成 `D:/dev/git/sdcard/...`，导致命令静默失败或作用到错误路径。凡是以 `/` 开头的设备路径参数，**必须加 `MSYS_NO_PATHCONV=1` 前缀**；本机 host 侧文件参数反过来要给 Windows 路径（`D:/Temp/x.db`，给 `/tmp/x.db` 会 `cannot stat`）。
 2. **中文拼音输入法**：模拟器默认 Gboard 拼音模式，`input text` 输入的 ASCII 会被 IME 拼音组合劫持转成中文（实测：输入 `/sdcard/xxx` 变成「／打他／...」）。**不要往输入框打路径/URL**；改用免输入方案（Init Local 勾选 + 短名、或预先放好文件、或直接改数据库，见 §5）。要打 ASCII（如备份密码）时：`pm disable-user --user 0 com.google.android.inputmethod.latin`，测完 `pm enable` 并把 `settings put secure default_input_method` 改回 `.../com.android.inputmethod.latin.LatinIME`。
-3. **adb 注入不了长按**（实测穷举）：`input swipe x y x y {600,800,1200,1500,2000}`、`input motionevent DOWN` + sleep + `UP`、`keyevent --longpress 23`、D-pad 聚焦后 longpress —— 全都**不能**触发 ListView 的 `onItemLongClick`（行节点 `long-clickable="true"`、logcat 无异常，是注入侧的限制，不是 app 的 bug）。要验证长按入口后面的功能，改成 §5 的直改 DB 造数据，走读取/渲染/筛选路径；写入路径则找别的真实调用点（如备份导入同样会调 `setRepoTags`）。
-4. **对话框 + 软键盘会挪按钮**：AlertDialog 里输入框一聚焦，整条对话框上移，按钮 bounds 变化（实测 OK 从 y≈1403 → 1071）。按旧坐标点下去会落在对话框外 → 触发 cancel，表现为「点了 OK 却退回上一页」。**每次输入后重新 dump 取按钮坐标**。
-5. **SAF 文件选择器可以 adb 驱动**：DocumentsUI 的 CREATE_DOCUMENT 会预填 `EXTRA_TITLE`，直接 tap `SAVE` 即可；OPEN_DOCUMENT 列表项 tap 即选中。注意 `cmd package resolve-activity -a android.intent.action.CREATE_DOCUMENT` 报 No activities found 是**假阴性**（它不带 MIME type），加 `-t application/octet-stream` 才查得到。
+3. **长按注入是可行的**：`MSYS_NO_PATHCONV=1 adb -s <serial> shell input swipe X Y X Y 1500`（起终点同坐标、时长 ≥1200ms）能触发 ListView 的 `onItemLongClick`，模拟器与真机都验过。这份 skill 以前写着「adb 注入不了长按、判定为注入侧限制」—— **那是错的**，真实原因见下条；把「工具驱动不了」当成「被测功能有问题」会掩盖真 bug，判定之前先用日志证明。
+4. **ListView 条目「点了没反应」的头号原因 = 行里有可聚焦后代**：`AbsListView.onTouchEvent` 的 ACTION_DOWN 只在 `!child.hasFocusable()` 时给这一行做 press 记账，于是 `onItemClick` 与 `onItemLongClick` **一起**失效。`HorizontalScrollView`/`ScrollView` 的构造链是 `super(context, attrs)`（XML 属性在此应用）→ `initScrollView()` → `setFocusableInTouchMode(true)`，**布局里写 `android:focusable="false"` / `focusableInTouchMode="false"` 都会被覆盖**，只能在代码里关（本项目的位置：`RepoListAdapter.newView`）。定位套路：给回调加一行临时 `Log.e("TAPDBG", …)` 重建装机 —— 有日志 = 业务分支问题，没日志 = 触摸没进 press 记账，先查 focusable / 遮挡 / adapter 状态，别猜业务代码。
+5. **uiautomator 的 text 跟设备语言走**：真机系统是中文，同一个对话框 dump 出来是「选择选项…/重命名/编辑标签」，用英文 `Rename|Edit tags` grep 会假阴性（表现为「长按没生效」）。断言前先确认目标机器的 locale，或改按 `resource-id` 匹配。
+6. **对话框 + 软键盘会挪按钮**：AlertDialog 里输入框一聚焦，整条对话框上移，按钮 bounds 变化（实测 OK 从 y≈1403 → 1071）。按旧坐标点下去会落在对话框外 → 触发 cancel，表现为「点了 OK 却退回上一页」。**每次输入后重新 dump 取按钮坐标**。
+7. **SAF 文件选择器可以 adb 驱动**：DocumentsUI 的 CREATE_DOCUMENT 会预填 `EXTRA_TITLE`，直接 tap `SAVE` 即可；OPEN_DOCUMENT 列表项 tap 即选中。注意 `cmd package resolve-activity -a android.intent.action.CREATE_DOCUMENT` 报 No activities found 是**假阴性**（它不带 MIME type），加 `-t application/octet-stream` 才查得到。
 
 ## 5. 数据层（debug 包可直查直改）
 

@@ -1,6 +1,6 @@
 # 仓库标签方案（标签完全取代分组）+ 标签备份设计
 
-状态：**已实现并在模拟器实测通过**（分支 `feature/repo-tags`，进度见第 11 节）。
+状态：**已实现，模拟器与真机均实测通过**（分支 `feature/repo-tags`，进度见第 11 节；真机回归的条目点击失效见第 12 节，已修）。
 决策记录（2026-10-09，用户定）：
 
 1. **只保留标签一个概念**，分组连同组头 UI 全部去掉。**不做「按主标签分桶」**——理由已经给得很明确：分组当前的价值就是「先看到几块，再点进去看」，而标签 + 筛选是**一次操作直接得到目标子集、整屏铺开后过滤**，层级更浅。分桶属于把刚扔掉的缺点重新发明一遍。
@@ -149,5 +149,21 @@ UI 触点（都是单屏，不再有下钻）：
 2. 顶部 chip 条不是叠在 `ListView` 上的浮层，而是它的**兄弟视图**（外层 LinearLayout 里排在前面），所以「常驻」由布局本身保证，不需要滚动监听；无筛选时整条 `GONE`，不占高度。
 3. 溢出计数 `+n` 用中性灰而不是标签色：它不是标签，跟着 `hashCode` 取色会被误读成一个真标签。同理「已选」chip 的色相按**标签名**派生，不能按 chip 文案（`"work  ×"`）派生，否则同一个标签在条目里和顶部两种颜色。
 
-**未测的一项**：长按条目进「Edit tags」。adb 在这台模拟器上注入不了长按（`swipe` 各时长、`motionevent DOWN`+延迟+`UP`、`keyevent --longpress`、D-pad 聚焦后长按，全部试过；行节点 `long-clickable=true`、logcat 无异常，判定为注入侧限制）。`setRepoTags` 的写入路径改由备份导入这条真实调用链覆盖，但「长按 → 勾选 → 确定」这段 UI 交互本身仍未跑过，需要在真机上人工确认一次。
+**补测完成（2026-10-09 晚）**：长按条目 →「Edit tags」→ 勾选/取消 → 确定，在模拟器和真机都跑通了；取消勾选后 `repo_tag` 少一行、`tag` 注册表不动，再勾回来又插回，条目 chip 与筛选条即时刷新。
+
+这一项此前记的是「adb 在这台模拟器上注入不了长按，判定为注入侧限制」—— **那个结论是错的**，`input swipe X Y X Y 1500` 一直能注入长按。当时按下没反应的真正原因是第 12 节的条目点击整体失效。错误结论曾被写进本节、skill 和项目记忆三处，教训是：**「我的工具驱动不了」和「被测功能有问题」是两件事，前者要用日志证明，不能凭「logcat 无异常」反推**。
+
+## 12. 真机回归：条目短按与长按一起失效（已修）
+
+**现象**：debug 包装到真机后，仓库条目点不动也长按不动。模拟器能稳定复现。
+
+**定位**：`RepoListActivity` 的两个 `setOnItem…Listener` 接线与 main 一致；hit-test 显示触点落在 `ListView → 行 → repoTitle` 上，没有遮挡物；`checkAndRequestAccessAllFilesPermission` 在 appops `allow` 下返回 false 且失败时会弹窗，不是它拦的。最后给两个回调各加一行临时 `Log.e("TAPDBG", …)` 重建装机 —— **logcat 一条都没有**，证明回调从未被调用，问题在 `AbsListView` 的触摸处理，不在业务分支。
+
+**根因**：`repo_listitem.xml` 末尾标签行的外层 `HorizontalScrollView`。它的构造链是 `HorizontalScrollView(context, attrs)` → `super(…)`（XML 属性在这一步才应用）→ `initScrollView()` → `setFocusableInTouchMode(true)`，所以布局里写 `android:focusable="false"`、`android:focusableInTouchMode="false"` 都会被覆盖掉。行里存在可聚焦后代 ⇒ `AbsListView.onTouchEvent` 的 ACTION_DOWN 分支 `if (!child.hasFocusable())` 不成立 ⇒ 不给这一行做 press 记账 ⇒ `onItemClick` 和 `onItemLongClick` **一起**失效。方案第 7 节给 chip 定了「行内不可点击」的规矩，却在容器上犯了同一类错，而且是更早、更彻底的那个错（未加标签的仓库也中招，因为当时外层容器一直 VISIBLE）。
+
+**修复**（`RepoListAdapter.newView`）：绑定 `tagRowScroll` 后在代码里 `setFocusable(false)` + `setFocusableInTouchMode(false)` —— 只能在代码里关。布局里那三条 focus 属性删了（写了不生效，留着只会误导下一个人），注释写明原因和这条框架行为。
+
+**顺带两处**：`TagChipRenderer.fillTagRow` 在无标签时把外层滚动容器一起置 `GONE`（模拟器实测：同一行从上一条目标题到下一条目标题的间距，带标签 348px、去掉标签后 280px，即完全回到加标签之前的高度）；「隐藏 parent」收紧成「只认 `HorizontalScrollView`」，免得将来容器换掉时把整个条目的根布局关掉 —— 那种 bug 表现是条目集体消失，排查代价远高于这一行判断。
+
+**验证**：模拟器上短按进 `RepoDetailActivity`、`input swipe … 1500` 长按出「选择选项…/编辑标签」；真机（debug 包）两条同样通过，勾选与取消标签都能落库。
 
