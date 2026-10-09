@@ -41,4 +41,15 @@
     <dimen name="file_list_header_hint_size">14sp</dimen>
 
     <dimen name="general_dialog_text_size">16dp</dimen>
+
+    <!-- repo list: tag chips + filter bar -->
+    <dimen name="repo_tag_text_size">12sp</dimen>
+    <dimen name="repo_tag_chip_padding_horizontal">8dp</dimen>
+    <dimen name="repo_tag_chip_padding_vertical">3dp</dimen>
+    <dimen name="repo_tag_chip_spacing">6dp</dimen>
+    <dimen name="repo_filter_bar_padding_horizontal">12dp</dimen>
+    <dimen name="repo_filter_bar_padding_vertical">8dp</dimen>
+    <dimen name="repo_filter_chip_padding_vertical">4dp</dimen>
+    <dimen name="repo_filter_text_size">13sp</dimen>
+    <dimen name="repo_list_empty_text_size">15sp</dimen>
 </resources>

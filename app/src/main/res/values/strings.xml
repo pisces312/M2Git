@@ -20,7 +20,8 @@
     <string name="action_mode_show_public_key">Show public key</string>
     <string name="action_mode_edit_key_password">Edit key password</string>
     <string name="action_sort">Sort</string>
-    <string name="action_groups">Groups</string>
+    <string name="action_tags">Tags</string>
+    <string name="action_filter_tags">Filter</string>
     <string name="action_feedback">Feedback</string>
     <string name="action_choose_language">Choose Language</string>
     <string name="action_mode_diff">Diff</string>
@@ -87,20 +88,38 @@
     <!-- Dialog Msg -->
     <string name="dialog_choose_branch_title">Choose Branch</string>
     <string name="dialog_choose_option">Choose option...</string>
-    <string name="dialog_move_to_group">Move to group</string>
-    <string name="dialog_move_to_group_title">Select group</string>
-    <string name="group_none">Ungrouped</string>
-    <string name="dialog_manage_groups_title">Manage Groups</string>
-    <string name="dialog_new_group_title">New Group</string>
-    <string name="dialog_new_group_hint">Group name</string>
-    <string name="dialog_rename_group_title">Rename Group</string>
-    <string name="dialog_delete_group_title">Delete Group</string>
-    <string name="dialog_delete_group_msg">Delete this group? Repos will be ungrouped.</string>
-    <string name="sort_name_asc">Name A-Z</string>
-    <string name="sort_name_desc">Name Z-A</string>
-    <string name="sort_date_asc">Date oldest first</string>
-    <string name="sort_date_desc">Date newest first</string>
-    <string name="error_rename_group_fail">Failed to rename group</string>
+    <string name="label_edit_tags">Edit tags</string>
+    <string name="dialog_edit_tags_title">Edit tags</string>
+    <string name="dialog_filter_tags_title">Filter by tags</string>
+    <string name="dialog_manage_tags_title">Manage tags</string>
+    <string name="dialog_new_tag_title">New tag</string>
+    <string name="dialog_new_tag_hint">Tag name</string>
+    <string name="dialog_rename_tag_title">Rename tag</string>
+    <string name="dialog_delete_tag_title">Delete tag</string>
+    <string name="dialog_delete_tag_msg">Delete this tag? It will be removed from every repository.</string>
+    <string name="tag_untagged">No tags</string>
+    <string name="error_rename_tag_exists">A tag with that name already exists</string>
+    <string name="label_add">Add</string>
+    <string name="label_clear_filter">Clear</string>
+    <string name="filter_mode_all">ALL</string>
+    <string name="filter_mode_any">ANY</string>
+    <string name="repo_list_empty">No repositories yet</string>
+    <string name="repo_list_empty_filtered">No repository matches these tags</string>
+
+    <!-- Sort dialog: key and direction are separate choices, not a combined list -->
+    <string name="dialog_sort_title">Sort repositories</string>
+    <string name="sort_section_key">Sort by</string>
+    <string name="sort_key_name">Name</string>
+    <string name="sort_key_last_commit">Last commit</string>
+    <string name="sort_key_time_added">Date added</string>
+    <string name="sort_section_direction">Direction</string>
+    <string name="sort_dir_asc">Ascending</string>
+    <string name="sort_dir_desc">Descending</string>
+    <string name="pref_key_repo_sort_key" translatable="false">repo_sort_key</string>
+    <string name="pref_key_repo_sort_direction" translatable="false">repo_sort_direction</string>
+    <string name="pref_key_repo_tag_match_all" translatable="false">repo_tag_match_all</string>
+    <string name="pref_key_repo_filter_tags" translatable="false">repo_filter_tags</string>
+    <string name="repo_view_state_file" translatable="false">repo_view_state</string>
     <string name="dialog_rename_repo_title">Rename Repository</string>
     <string name="dialog_rename_repo_hint">Repository Name</string>
     <string name="dialog_delete_repo_title">Delete Confirmation</string>
@@ -253,7 +272,7 @@
     <string name="dialog_import_password_title">Enter Import Password</string>
     <string name="dialog_import_password_msg">Enter the password to decrypt the backup file:</string>
     <string name="export_success">Export successful: %1$d repos, %2$d credentials</string>
-    <string name="import_success">Import successful: %1$d repos, %2$d credentials skipped %3$d</string>
+    <string name="import_success">Import successful: %1$d repos, %2$d credentials, %3$d tags, %4$d skipped</string>
     <string name="backup_error">Backup error: %s</string>
 
 </resources>

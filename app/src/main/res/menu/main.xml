@@ -8,12 +8,16 @@
         app:actionViewClass="android.widget.SearchView"
         app:showAsAction="always|collapseActionView" />
     <item
+        android:id="@+id/action_filter_tags"
+        android:title="@string/action_filter_tags"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_sort"
         android:title="@string/action_sort"
         app:showAsAction="never" />
     <item
-        android:id="@+id/action_groups"
-        android:title="@string/action_groups"
+        android:id="@+id/action_tags"
+        android:title="@string/action_tags"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_new"
