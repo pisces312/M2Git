@@ -4,11 +4,14 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteConstraintException;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -94,78 +97,178 @@ public class RepoDbManager {
         updateRepo(repoId, values);
     }
 
-    public static void setRepoGroup(long repoId, int groupId) {
-        ContentValues values = new ContentValues();
-        if (groupId <= 0) {
-            values.putNull(RepoContract.RepoEntry.COLUMN_NAME_GROUP_ID);
-        } else {
-            values.put(RepoContract.RepoEntry.COLUMN_NAME_GROUP_ID, groupId);
+    // ---- Tag CRUD（标签取代分组，设计见 docs/repo-tags-design.md）----
+
+    /** 全部标签，按展示顺序（sort_order 即创建序）再按名字，附带每个标签的命中仓库数。 */
+    public static Cursor queryAllTags() {
+        String tag = RepoContract.TagEntry.TABLE_NAME;
+        String repoTag = RepoContract.RepoTagEntry.TABLE_NAME;
+        String sql = "SELECT t." + RepoContract.TagEntry._ID + " AS " + RepoContract.TagEntry._ID
+            + ", t." + RepoContract.TagEntry.COLUMN_NAME + " AS " + RepoContract.TagEntry.COLUMN_NAME
+            + ", t." + RepoContract.TagEntry.COLUMN_SORT_ORDER + " AS "
+            + RepoContract.TagEntry.COLUMN_SORT_ORDER
+            + ", (SELECT COUNT(*) FROM " + repoTag + " rt WHERE rt."
+            + RepoContract.RepoTagEntry.COLUMN_TAG_ID + " = t." + RepoContract.TagEntry._ID
+            + ") AS " + RepoContract.TagEntry.COLUMN_REPO_COUNT
+            + " FROM " + tag + " t ORDER BY t." + RepoContract.TagEntry.COLUMN_SORT_ORDER
+            + " ASC, t." + RepoContract.TagEntry.COLUMN_NAME + " ASC";
+        return getInstance().mReadableDB.rawQuery(sql, null);
+    }
+
+    /**
+     * repo_id -&gt; 标签名列表（按标签展示顺序）。一次 JOIN 取全，避免每个仓库一条查询。
+     */
+    public static Map<Long, List<String>> queryRepoTagMap() {
+        Map<Long, List<String>> map = new HashMap<>();
+        Cursor cursor = getInstance().mReadableDB.rawQuery(
+            "SELECT rt." + RepoContract.RepoTagEntry.COLUMN_REPO_ID + ", t."
+                + RepoContract.TagEntry.COLUMN_NAME
+                + " FROM " + RepoContract.RepoTagEntry.TABLE_NAME + " rt JOIN "
+                + RepoContract.TagEntry.TABLE_NAME + " t ON t." + RepoContract.TagEntry._ID
+                + " = rt." + RepoContract.RepoTagEntry.COLUMN_TAG_ID
+                + " ORDER BY t." + RepoContract.TagEntry.COLUMN_SORT_ORDER + " ASC, t."
+                + RepoContract.TagEntry.COLUMN_NAME + " ASC", null);
+        try {
+            if (cursor != null && cursor.moveToFirst()) {
+                while (!cursor.isAfterLast()) {
+                    long repoId = cursor.getLong(0);
+                    List<String> names = map.get(repoId);
+                    if (names == null) {
+                        names = new ArrayList<>();
+                        map.put(repoId, names);
+                    }
+                    names.add(cursor.getString(1));
+                    cursor.moveToNext();
+                }
+            }
+        } finally {
+            if (cursor != null) cursor.close();
         }
-        updateRepo(repoId, values);
+        return map;
     }
 
-    public static void setRepoSortOrder(long repoId, int sortOrder) {
-        ContentValues values = new ContentValues();
-        values.put(RepoContract.RepoEntry.COLUMN_NAME_SORT_ORDER, sortOrder);
-        updateRepo(repoId, values);
+    /** 一个标签都没挂的仓库数，给筛选面板里的「无标签」选项用。 */
+    public static int countReposWithoutTags() {
+        Cursor cursor = getInstance().mReadableDB.rawQuery(
+            "SELECT COUNT(*) FROM " + RepoContract.RepoEntry.TABLE_NAME + " r WHERE NOT EXISTS "
+                + "(SELECT 1 FROM " + RepoContract.RepoTagEntry.TABLE_NAME + " rt WHERE rt."
+                + RepoContract.RepoTagEntry.COLUMN_REPO_ID + " = r." + RepoContract.RepoEntry._ID
+                + ")", null);
+        int count = 0;
+        try {
+            if (cursor.moveToFirst() && !cursor.isNull(0)) {
+                count = cursor.getInt(0);
+            }
+        } finally {
+            cursor.close();
+        }
+        return count;
     }
 
-    // ---- RepoGroup CRUD ----
-
-    public static long createGroup(String name) {
-        ContentValues values = new ContentValues();
-        values.put(RepoContract.RepoGroupEntry.COLUMN_NAME, name);
-        values.put(RepoContract.RepoGroupEntry.COLUMN_SORT_ORDER, getNextGroupSortOrder());
-        long id = getInstance().mWritableDB.insert(RepoContract.RepoGroupEntry.TABLE_NAME, null, values);
-        notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+    /** 名字 trim 后复用已有标签，不存在则新建。返回 tag_id，空名字返回 -1。 */
+    public static long createTagIfAbsent(String rawName) {
+        long id = findOrCreateTagId(getInstance().mWritableDB, rawName);
+        if (id >= 0) {
+            notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+        }
         return id;
     }
 
-    public static void updateGroup(long groupId, String name) {
+    /** 重命名；目标名已被占用（UNIQUE）时返回 false，由 UI 提示。 */
+    public static boolean renameTag(long tagId, String rawName) {
+        String name = rawName == null ? "" : rawName.trim();
+        if (name.isEmpty()) return false;
+        try {
+            ContentValues values = new ContentValues();
+            values.put(RepoContract.TagEntry.COLUMN_NAME, name);
+            getInstance().mWritableDB.update(RepoContract.TagEntry.TABLE_NAME, values,
+                RepoContract.TagEntry._ID + " = ?", new String[]{String.valueOf(tagId)});
+        } catch (SQLiteConstraintException e) {
+            Timber.d(e, "rename tag %d -> %s rejected: name in use", tagId, name);
+            return false;
+        }
+        notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+        return true;
+    }
+
+    /** 删标签同时清掉它与仓库的关系（表间无外键强制，只能代码层保证）。 */
+    public static void deleteTag(long tagId) {
+        String[] args = {String.valueOf(tagId)};
+        SQLiteDatabase db = getInstance().mWritableDB;
+        db.delete(RepoContract.RepoTagEntry.TABLE_NAME,
+            RepoContract.RepoTagEntry.COLUMN_TAG_ID + " = ?", args);
+        db.delete(RepoContract.TagEntry.TABLE_NAME, RepoContract.TagEntry._ID + " = ?", args);
+        notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+    }
+
+    /** 全量覆盖一个仓库的标签：清旧关系，再按名字复用/新建。 */
+    public static void setRepoTags(long repoId, List<String> tagNames) {
+        SQLiteDatabase db = getInstance().mWritableDB;
+        db.beginTransaction();
+        try {
+            db.delete(RepoContract.RepoTagEntry.TABLE_NAME,
+                RepoContract.RepoTagEntry.COLUMN_REPO_ID + " = ?",
+                new String[]{String.valueOf(repoId)});
+            ContentValues values = new ContentValues();
+            values.put(RepoContract.RepoTagEntry.COLUMN_REPO_ID, repoId);
+            if (tagNames != null) {
+                for (String name : tagNames) {
+                    // 事务内不 notify：否则中途的 requery 会读到未提交的标签集
+                    long tagId = findOrCreateTagId(db, name);
+                    if (tagId < 0) continue;
+                    values.put(RepoContract.RepoTagEntry.COLUMN_TAG_ID, tagId);
+                    db.insertWithOnConflict(RepoContract.RepoTagEntry.TABLE_NAME, null, values,
+                        SQLiteDatabase.CONFLICT_IGNORE);
+                }
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+            notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+        }
+    }
+
+    /** 删仓库时清理关系行，避免 repo_tag 积累孤儿。 */
+    public static void deleteRepoTags(long repoId) {
+        getInstance().mWritableDB.delete(RepoContract.RepoTagEntry.TABLE_NAME,
+            RepoContract.RepoTagEntry.COLUMN_REPO_ID + " = ?",
+            new String[]{String.valueOf(repoId)});
+    }
+
+    /** 用给定的 db 句柄（事务内必须用同一个句柄读），不做 observer 通知。 */
+    private static long findOrCreateTagId(SQLiteDatabase db, String rawName) {
+        String name = rawName == null ? "" : rawName.trim();
+        if (name.isEmpty()) return -1;
+        long existing = findTagId(db, name);
+        if (existing >= 0) return existing;
         ContentValues values = new ContentValues();
-        values.put(RepoContract.RepoGroupEntry.COLUMN_NAME, name);
-        String whereClause = RepoContract.RepoGroupEntry._ID + " = ?";
-        String[] whereArgs = {String.valueOf(groupId)};
-        getInstance().mWritableDB.update(RepoContract.RepoGroupEntry.TABLE_NAME, values,
-            whereClause, whereArgs);
-        notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+        values.put(RepoContract.TagEntry.COLUMN_NAME, name);
+        values.put(RepoContract.TagEntry.COLUMN_SORT_ORDER, getNextTagSortOrder(db));
+        try {
+            return db.insertOrThrow(RepoContract.TagEntry.TABLE_NAME, null, values);
+        } catch (SQLiteConstraintException e) {
+            // UNIQUE 竞争（同名并发创建）：回查已有 id
+            return findTagId(db, name);
+        }
     }
 
-    public static void deleteGroup(long groupId) {
-        // Unassign repos from this group
-        ContentValues repoValues = new ContentValues();
-        repoValues.putNull(RepoContract.RepoEntry.COLUMN_NAME_GROUP_ID);
-        String repoWhere = RepoContract.RepoEntry.COLUMN_NAME_GROUP_ID + " = ?";
-        String[] repoArgs = {String.valueOf(groupId)};
-        getInstance().mWritableDB.update(RepoContract.RepoEntry.TABLE_NAME, repoValues,
-            repoWhere, repoArgs);
-
-        // Delete the group
-        String whereClause = RepoContract.RepoGroupEntry._ID + " = ?";
-        String[] whereArgs = {String.valueOf(groupId)};
-        getInstance().mWritableDB.delete(RepoContract.RepoGroupEntry.TABLE_NAME, whereClause,
-            whereArgs);
-        notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+    private static long findTagId(SQLiteDatabase db, String name) {
+        Cursor cursor = db.query(RepoContract.TagEntry.TABLE_NAME,
+            new String[]{RepoContract.TagEntry._ID},
+            RepoContract.TagEntry.COLUMN_NAME + " = ?", new String[]{name}, null, null, null);
+        long id = -1;
+        try {
+            if (cursor.moveToFirst()) id = cursor.getLong(0);
+        } finally {
+            cursor.close();
+        }
+        return id;
     }
 
-    public static Cursor queryAllGroups() {
-        return getInstance().mReadableDB.query(true, RepoContract.RepoGroupEntry.TABLE_NAME,
-            RepoContract.RepoGroupEntry.ALL_COLUMNS, null, null, null, null,
-            RepoContract.RepoGroupEntry.COLUMN_SORT_ORDER + " ASC", null);
-    }
-
-    public static Cursor queryReposByGroup(long groupId) {
-        String whereClause = RepoContract.RepoEntry.COLUMN_NAME_GROUP_ID + " = ?";
-        String[] whereArgs = {String.valueOf(groupId)};
-        return getInstance().mReadableDB.query(true, RepoContract.RepoEntry.TABLE_NAME,
-            RepoContract.RepoEntry.ALL_COLUMNS, whereClause, whereArgs, null, null,
-            null, null);
-    }
-
-    private static int getNextGroupSortOrder() {
-        Cursor cursor = getInstance().mReadableDB.rawQuery(
-            "SELECT MAX(" + RepoContract.RepoGroupEntry.COLUMN_SORT_ORDER + ") FROM "
-                + RepoContract.RepoGroupEntry.TABLE_NAME, null);
+    private static int getNextTagSortOrder(SQLiteDatabase db) {
+        Cursor cursor = db.rawQuery(
+            "SELECT MAX(" + RepoContract.TagEntry.COLUMN_SORT_ORDER + ") FROM "
+                + RepoContract.TagEntry.TABLE_NAME, null);
         int max = 0;
         if (cursor.moveToFirst() && !cursor.isNull(0)) {
             max = cursor.getInt(0);
@@ -181,6 +284,9 @@ public class RepoDbManager {
         values.put(RepoContract.RepoEntry.COLUMN_NAME_LOCAL_PATH, localPath);
         values.put(RepoContract.RepoEntry.COLUMN_NAME_REMOTE_URL, remoteURL);
         values.put(RepoContract.RepoEntry.COLUMN_NAME_REPO_STATUS, status);
+        // 入库时间：克隆/导入/新建都走这里，是唯一写入点。
+        // 唯一例外是备份导入，它必须把 time_added 覆盖回备份时的值。
+        values.put(RepoContract.RepoEntry.COLUMN_NAME_TIME_ADDED, System.currentTimeMillis());
         long id = getInstance().mWritableDB.insert(RepoContract.RepoEntry.TABLE_NAME, null, values);
         notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
         return id;
@@ -343,6 +449,8 @@ public class RepoDbManager {
     private void _deleteRepo(long id) {
         String whereClause = RepoContract.RepoEntry._ID + " = ?";
         String[] whereArgs = {String.valueOf(id)};
+        // repo_tag 没有外键强制（本项目不开 foreign_keys pragma），关系行必须在这里显式清掉
+        deleteRepoTags(id);
         mWritableDB.delete(RepoContract.RepoEntry.TABLE_NAME, whereClause, whereArgs);
         notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
     }
