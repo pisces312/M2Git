@@ -64,6 +64,10 @@ sed 's/></>\n</g' wd.xml | grep -oE 'text="[^"]+"[^>]*bounds="\[[0-9]+,[0-9]+\]\
 5. **uiautomator 的 text 跟设备语言走**：真机系统是中文，同一个对话框 dump 出来是「选择选项…/重命名/编辑标签」，用英文 `Rename|Edit tags` grep 会假阴性（表现为「长按没生效」）。断言前先确认目标机器的 locale，或改按 `resource-id` 匹配。
 6. **对话框 + 软键盘会挪按钮**：AlertDialog 里输入框一聚焦，整条对话框上移，按钮 bounds 变化（实测 OK 从 y≈1403 → 1071）。按旧坐标点下去会落在对话框外 → 触发 cancel，表现为「点了 OK 却退回上一页」。**每次输入后重新 dump 取按钮坐标**。
 7. **SAF 文件选择器可以 adb 驱动**：DocumentsUI 的 CREATE_DOCUMENT 会预填 `EXTRA_TITLE`，直接 tap `SAVE` 即可；OPEN_DOCUMENT 列表项 tap 即选中。注意 `cmd package resolve-activity -a android.intent.action.CREATE_DOCUMENT` 报 No activities found 是**假阴性**（它不带 MIME type），加 `-t application/octet-stream` 才查得到。
+8. **截图坐标 ≠ tap 坐标**：`screencap` 拉下来的 PNG 是缩放显示的（1080 宽屏显示成 ~485，因子 ≈2.23），**`input tap` 只认真实坐标**。最可靠的坐标来源是 `dumpsys activity top` 的视图树 bounds（全部真实坐标）；验证「工具栏图标顺序/位置」这类问题直接 grep `ActionMenuItemView` 的 bounds，比按截图量尺寸准。
+9. **uiautomator dump 会给陈旧 hierarchy**：窗口已切换（甚至 activity 已重建）后 dump 仍可能返回上一个窗口的树（表现为「截图与 dump 内容对不上」）。此时以 `dumpsys activity top` / `dumpsys window windows` 为准，或先 `adb reboot`。
+10. **"Process system isn't responding" 是 system_server ANR，不是 app ANR**：伴随 systemui 长时间狂转 CPU + 内存耗尽（2GB AVD 常见），app 本身可能没问题。`adb reboot` 恢复，别去查 app 代码。
+11. **`pm disable-user` IME 的副作用（接第 2 条）**：系统会把 `default_input_method` 顶到下一个可用 IME（如 TTS voice IME）；`pm enable` 恢复包**不会**自动切回，必须再 `settings put secure default_input_method com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME`。
 
 ## 5. 数据层（debug 包可直查直改）
 
