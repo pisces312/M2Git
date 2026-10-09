@@ -144,6 +144,11 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         if (tagIds != null) {
             mFilterTagIds.addAll(tagIds);
         }
+        // 面板已经互斥掉了「无标签 + 具体标签」，这里是兜底：老偏好文件里可能存着这种组合，
+        // 或者用户在面板开着的时候切了匹配方式。与其展示一个必然为空的列表，不如丢掉伪标签。
+        if (mMatchAll && mFilterTagIds.size() > 1) {
+            mFilterTagIds.remove(Tag.UNTAGGED_ID);
+        }
         persistFilterSelection();
         requery();
     }
@@ -287,7 +292,7 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
             boolean hit;
             if (mMatchAll) {
                 // AND：每个选中条件都要满足。「无标签」和具体标签同时选中必然无解
-                // （既有标签又不带任何标签的仓库不存在），空结果由空列表提示兜住，不是 bug。
+                // （既有标签又不带任何标签的仓库不存在），由筛选面板互斥掉，这里不再特殊处理。
                 hit = (!wantUntagged || have.isEmpty()) && containsAll(have, wanted);
             } else {
                 // OR：任一条件命中即可，「无标签」同样是并集的一部分
@@ -525,33 +530,12 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         TagPickerDialog.show(context,
             R.string.dialog_edit_tags_title,
             this::loadTags,
-            tagIdsForNames(repo.getTagNames()),
+            Tag.idsOfNames(loadTags(), repo.getTagNames()),
             true,   // 允许就地新建
             false,  // 编辑场景不需要命中数
-            tagIds -> RepoDbManager.setRepoTags(repo.getID(), tagNamesForIds(tagIds)));
-    }
-
-    private Set<Integer> tagIdsForNames(List<String> names) {
-        Set<Integer> ids = new LinkedHashSet<>();
-        for (Tag tag : loadTags()) {
-            if (names.contains(tag.getName())) {
-                ids.add(tag.getId());
-            }
-        }
-        return ids;
-    }
-
-    /**
-     * 名字从库里现查，不能只翻对话框打开时的快照 —— 面板里就地新建的标签那时还不存在。
-     */
-    private List<String> tagNamesForIds(Collection<Integer> tagIds) {
-        List<String> names = new ArrayList<>();
-        for (Tag tag : loadTags()) {
-            if (tagIds.contains(tag.getId())) {
-                names.add(tag.getName());
-            }
-        }
-        return names;
+            false,  // 编辑场景没有「无标签」伪标签，互斥不参与
+            tagIds -> RepoDbManager.setRepoTags(repo.getID(),
+                Tag.namesOfIds(loadTags(), tagIds)));
     }
 
     private void createShortcut(BaseCompatActivity context, final Repo repo) {

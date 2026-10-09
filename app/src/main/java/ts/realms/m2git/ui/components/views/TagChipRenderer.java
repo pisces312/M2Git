@@ -26,9 +26,6 @@ import java.util.List;
  */
 public final class TagChipRenderer {
 
-    /** 条目底部一行最多展示几个标签，其余折叠成 "+n"，保证行高可预测。 */
-    public static final int MAX_TAGS_IN_ROW = 4;
-
     private static final float CHIP_TEXT_SP = 12f;
     private static final float CHIP_H_PADDING_DP = 9f;
     private static final float CHIP_V_PADDING_DP = 3f;
@@ -48,16 +45,7 @@ public final class TagChipRenderer {
      */
     public static TextView createChip(Context context, String text, boolean filled,
         View.OnClickListener onClick) {
-        return createChip(context, text, filled, onClick, false, text);
-    }
-
-    /**
-     * @param neutral true = 中性灰（溢出计数这类「不是标签」的占位 chip），不参与色相派生，
-     *                免得 "+2" 看起来像一个真标签。
-     */
-    public static TextView createChip(Context context, String text, boolean filled,
-        View.OnClickListener onClick, boolean neutral) {
-        return createChip(context, text, filled, onClick, neutral, text);
+        return createChip(context, text, filled, onClick, text);
     }
 
     /**
@@ -68,11 +56,11 @@ public final class TagChipRenderer {
      */
     public static TextView createSelectedChip(Context context, String text, String colorKey,
         View.OnClickListener onClick) {
-        return createChip(context, removableLabel(text), true, onClick, false, colorKey);
+        return createChip(context, removableLabel(text), true, onClick, colorKey);
     }
 
     private static TextView createChip(Context context, String text, boolean filled,
-        View.OnClickListener onClick, boolean neutral, String colorKey) {
+        View.OnClickListener onClick, String colorKey) {
         TextView chip = new TextView(context);
         chip.setText(text);
         chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, CHIP_TEXT_SP);
@@ -89,7 +77,7 @@ public final class TagChipRenderer {
         lp.gravity = Gravity.CENTER_VERTICAL;
         chip.setLayoutParams(lp);
 
-        applyStyle(context, chip, filled, neutral, colorKey);
+        applyStyle(context, chip, filled, colorKey);
 
         if (onClick != null) {
             chip.setClickable(true);
@@ -100,8 +88,12 @@ public final class TagChipRenderer {
     }
 
     /**
-     * 渲染条目底部的标签行。没有标签时把整行连同外层 HorizontalScrollView 一起隐藏 ——
-     * 外层即使高度为 0 也仍然是行里的一个节点，留着它等于给 ListView 塞了个多余的子 view。
+     * 渲染条目底部的标签行。单行不换行，超出屏幕宽度的部分靠外层 HorizontalScrollView 横向滑出来，
+     * 所以标签再多行高也不变（可预测），也不用再折叠成 "+n" —— 折叠会让「第 5 个之后有什么」变成
+     * 必须长按进编辑才看得到的信息。
+     *
+     * 没有标签时把整行连同外层 HorizontalScrollView 一起隐藏 —— 外层即使高度为 0 也仍然是行里的
+     * 一个节点，留着它等于给 ListView 塞了个多余的子 view。
      */
     public static void fillTagRow(LinearLayout container, List<String> tagNames) {
         container.removeAllViews();
@@ -111,17 +103,15 @@ public final class TagChipRenderer {
         // 只认 HorizontalScrollView 这一种外层：万一以后标签行不再套滚动容器，
         // 无条件隐藏 parent 就会把整个条目的根布局关掉，那种 bug 排查起来很费劲。
         if (container.getParent() instanceof HorizontalScrollView) {
-            ((View) container.getParent()).setVisibility(visibility);
+            HorizontalScrollView scroll = (HorizontalScrollView) container.getParent();
+            scroll.setVisibility(visibility);
+            // 行是复用的：上一个仓库横向滑到一半的偏移会跟着 convertView 带过来，必须归零。
+            scroll.scrollTo(0, 0);
         }
         if (empty) return;
         Context context = container.getContext();
-        int shown = Math.min(tagNames.size(), MAX_TAGS_IN_ROW);
-        for (int i = 0; i < shown; i++) {
-            container.addView(createChip(context, tagNames.get(i), false, null));
-        }
-        if (tagNames.size() > shown) {
-            // 溢出计数用中性色：它不是标签，不该抢标签的视觉身份
-            container.addView(createChip(context, "+" + (tagNames.size() - shown), false, null, true));
+        for (String name : tagNames) {
+            container.addView(createChip(context, name, false, null));
         }
     }
 
@@ -136,26 +126,21 @@ public final class TagChipRenderer {
         return Math.abs(name.hashCode() % 360);
     }
 
-    private static void applyStyle(Context context, TextView chip, boolean filled, boolean neutral,
-        String colorKey) {
-        int hue = neutral ? 0 : hueOf(colorKey);
+    private static void applyStyle(Context context, TextView chip, boolean filled, String colorKey) {
+        int hue = hueOf(colorKey);
         boolean dark = isDarkTheme(context);
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(context, CHIP_CORNER_DP));
 
         if (filled) {
-            int solid = neutral
-                ? ColorUtils.setAlphaComponent(neutralTextColor(context), dark ? 90 : 60)
-                : Color.HSVToColor(new float[]{hue, 0.55f, 0.72f});
+            int solid = Color.HSVToColor(new float[]{hue, 0.55f, 0.72f});
             bg.setColor(solid);
-            chip.setTextColor(neutral ? neutralTextColor(context)
-                : (ColorUtils.calculateLuminance(solid) > 0.45
-                    ? Color.rgb(24, 24, 24) : Color.WHITE));
+            chip.setTextColor(ColorUtils.calculateLuminance(solid) > 0.45
+                ? Color.rgb(24, 24, 24) : Color.WHITE);
         } else {
-            int accent = neutral ? neutralTextColor(context)
-                : Color.HSVToColor(new float[]{hue, dark ? 0.42f : 0.60f,
-                    dark ? 0.90f : 0.42f});
-            bg.setColor(neutral ? neutralTint(dark, context) : tintedBackground(hue, dark, context));
+            int accent = Color.HSVToColor(new float[]{hue, dark ? 0.42f : 0.60f,
+                dark ? 0.90f : 0.42f});
+            bg.setColor(tintedBackground(hue, dark, context));
             bg.setStroke((int) dp(context, CHIP_STROKE_DP),
                 ColorUtils.setAlphaComponent(accent, dark ? 130 : 90));
             chip.setTextColor(accent);
@@ -169,16 +154,6 @@ public final class TagChipRenderer {
         int alpha = dark ? 46 : 26;
         return ColorUtils.compositeColors(Color.argb(alpha, Color.red(vivid), Color.green(vivid),
             Color.blue(vivid)), windowBackground(context));
-    }
-
-    /** 中性 chip 的底：纯灰叠加，不带任何色相。 */
-    private static int neutralTint(boolean dark, Context context) {
-        return ColorUtils.compositeColors(Color.argb(dark ? 40 : 24, 128, 128, 128),
-            windowBackground(context));
-    }
-
-    private static int neutralTextColor(Context context) {
-        return isDarkTheme(context) ? Color.rgb(170, 170, 170) : Color.rgb(120, 120, 120);
     }
 
     public static int windowBackground(Context context) {

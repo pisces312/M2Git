@@ -320,6 +320,9 @@ public class RepoListActivity extends BaseCompatActivity {
             mRepoListAdapter.getFilterTagIds(),
             false,  // 筛选面板不建标签，避免「为了筛选而误建」
             true,   // 带命中数：选之前就知道这一筛会剩多少
+            // 「无标签」与具体标签在「全部满足」下无解，让面板直接互斥掉，别让用户撞空结果；
+            // 「任一满足」下两者是合法并集，不互斥。
+            mRepoListAdapter.isMatchAll(),
             mRepoListAdapter::setFilterSelection);
     }
 

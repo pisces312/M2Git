@@ -84,7 +84,15 @@ public class BackupManager {
             String jsonStr = new String(decrypted, StandardCharsets.UTF_8);
             JSONObject backup = new JSONObject(jsonStr);
 
-            BackupResult result = importBackup(backup);
+            // 导入是同步跑在 UI 线程上的，逐条广播会让仓库列表重算 2N 次；
+            // 挂起后只在结束时补一次。finally 恢复，异常路径下列表也必须能刷新。
+            BackupResult result;
+            RepoDbManager.setNotificationsSuppressed(true);
+            try {
+                result = importBackup(backup);
+            } finally {
+                RepoDbManager.setNotificationsSuppressed(false);
+            }
             callback.onSuccess(result);
         } catch (Exception e) {
             callback.onError(e.getMessage());

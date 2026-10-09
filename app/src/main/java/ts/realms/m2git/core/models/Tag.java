@@ -3,7 +3,10 @@ package ts.realms.m2git.core.models;
 import android.database.Cursor;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import ts.realms.m2git.local.database.RepoContract;
 
@@ -72,5 +75,35 @@ public class Tag {
 
     public boolean isUntagged() {
         return mId == UNTAGGED_ID;
+    }
+
+    /**
+     * 标签名 -&gt; id。只认注册表里存在的名字：库里没有的标签名不该凭空变成筛选条件。
+     * 顺序跟随 registry，不跟随 names。
+     */
+    public static Set<Integer> idsOfNames(List<Tag> registry, Collection<String> names) {
+        Set<Integer> ids = new LinkedHashSet<>();
+        if (registry == null || names == null) return ids;
+        for (Tag tag : registry) {
+            if (names.contains(tag.getName())) {
+                ids.add(tag.getId());
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * id -&gt; 标签名。registry 要现查，不能翻对话框打开时的快照 ——
+     * 面板里就地新建的标签那时还不存在，用快照会把它们丢掉。
+     */
+    public static List<String> namesOfIds(List<Tag> registry, Collection<Integer> ids) {
+        List<String> names = new ArrayList<>();
+        if (registry == null || ids == null) return names;
+        for (Tag tag : registry) {
+            if (ids.contains(tag.getId())) {
+                names.add(tag.getName());
+            }
+        }
+        return names;
     }
 }

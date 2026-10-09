@@ -54,7 +54,24 @@ public class RepoDbManager {
         set.remove(observer);
     }
 
+    /** 批量写入期间挂起通知；见 {@link #setNotificationsSuppressed}。 */
+    private static volatile boolean sNotificationsSuppressed = false;
+
+    /**
+     * 批量写入（备份导入）期间挂起观察者通知，结束时补一次。
+     * 不这么做的话，导入 N 个仓库会写 N 次 repo 行 + N 次 setRepoTags，每次都广播一次，
+     * 而 requery 跑在调用方线程 —— 导入是在 UI 线程同步做的，等于串行重算 2N 次列表。
+     * 调用方必须用 try/finally 恢复，否则列表再也不会刷新。
+     */
+    public static void setNotificationsSuppressed(boolean suppressed) {
+        sNotificationsSuppressed = suppressed;
+        if (!suppressed) {
+            notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+        }
+    }
+
     public static void notifyObservers(String table) {
+        if (sNotificationsSuppressed) return;
         Set<RepoDbObserver> set = mObservers.get(table);
         if (set == null) return;
         for (RepoDbObserver observer : set) {
@@ -250,6 +267,11 @@ public class RepoDbManager {
             // UNIQUE 竞争（同名并发创建）：回查已有 id
             return findTagId(db, name);
         }
+    }
+
+    /** 按名字查 tag_id（与库一致的 BINARY 比较），不存在返回 -1。 */
+    public static long findTagId(String name) {
+        return findTagId(getInstance().mReadableDB, name == null ? "" : name.trim());
     }
 
     private static long findTagId(SQLiteDatabase db, String name) {
