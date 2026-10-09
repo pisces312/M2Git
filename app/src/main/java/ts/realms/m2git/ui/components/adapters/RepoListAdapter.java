@@ -237,12 +237,7 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
     }
 
     private void requery() {
-        Cursor cursor = null;
-        if (mQueryType == QUERY_TYPE_SEARCH) {
-            cursor = RepoDbManager.searchRepo(mSearchQueryString);
-        } else {
-            cursor = RepoDbManager.queryAllRepo();
-        }
+        Cursor cursor = RepoDbManager.queryAllRepo();
         List<Repo> repos = cursor == null ? new ArrayList<>() : Repo.getRepoList(cursor);
         if (cursor != null) cursor.close();
 
@@ -254,7 +249,10 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
 
         pruneFilterSelection();
         mTotalRepoCount = repos.size();
-        List<Repo> visible = applyTagFilter(repos);
+        // 搜索与标签筛选互斥，不叠加：筛选是持久化的，叠上去会让人在没看筛选条时以为「搜不出」
+        List<Repo> visible = mQueryType == QUERY_TYPE_SEARCH
+            ? filterByQuery(repos, mSearchQueryString)
+            : applyTagFilter(repos);
         Collections.sort(visible, repoComparator());
 
         clear();
@@ -263,6 +261,33 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         if (mOnListRefreshed != null) {
             mOnListRefreshed.run();
         }
+    }
+
+    /**
+     * 搜索匹配。放 Java 而不是 SQL LIKE：列表标题是 {@link Repo#getDisplayName()}，它是
+     * local_path 的加工结果（external 仓库还会拼 " (external)"），继续匹配库里的裸列等于
+     * 「搜的不是你看到的东西」。这里统一按显示名 + 路径 + 远程地址 + 提交者 + 提交信息做
+     * 归一化子串匹配，所见即所搜；LIKE 的通配符（%/_）与「只对 ASCII 折叠大小写」两个坑
+     * 也一并消掉了。
+     */
+    private List<Repo> filterByQuery(List<Repo> repos, String query) {
+        String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        if (q.isEmpty()) return repos;
+        List<Repo> hit = new ArrayList<>();
+        for (Repo repo : repos) {
+            if (matches(repo.getDisplayName(), q)
+                || matches(repo.getLocalPath(), q)
+                || matches(repo.getRemoteURL(), q)
+                || matches(repo.getLastCommitter(), q)
+                || matches(repo.getLastCommitMsg(), q)) {
+                hit.add(repo);
+            }
+        }
+        return hit;
+    }
+
+    private static boolean matches(String value, String query) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(query);
     }
 
     private List<Tag> loadTags() {
