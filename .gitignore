@@ -52,3 +52,6 @@ app/src/main/resources
 *.hprof
 *.idsig
 .kotlin/
+
+# WorkBuddy 会话数据（记忆日志等，不入仓）
+.workbuddy/
