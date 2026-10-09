@@ -3,21 +3,28 @@
     <item
         android:id="@+id/action_search"
         android:icon="@drawable/ic_search"
+        android:orderInCategory="1"
         android:title="@string/action_search"
         android:visible="false"
         app:actionViewClass="android.widget.SearchView"
         app:showAsAction="always|collapseActionView" />
-    <item
-        android:id="@+id/action_toggle_drawer"
-        android:icon="@drawable/ic_drawer"
-        android:title="@string/action_toggle_drawer"
-        app:showAsAction="always" />
     <!--
-      标签入口。列表页是长按进编辑，详情页只能从这里进 —— 没有标签图标，放溢出菜单，
-      不占 toolbar 的位置（这一屏的 always 位已经给了抽屉按钮）。
+      标签入口：列表页长按进，详情页从这里进。图标复用列表页筛选条那个白色 label 轮廓
+      （ic_action_filter_tags），两个主题的 ActionBar 都是深色，直接用，不新增资源。
+      orderInCategory 比抽屉按钮小，所以它排在抽屉按钮左边 —— 只靠「声明在前」依赖的是
+      ActionMenuPresenter 的隐式行为，显式写死更稳。
+      它现在是唯一的溢出项，提成 always 之后溢出菜单为空，三点自动消失。
     -->
     <item
         android:id="@+id/action_edit_tags"
+        android:icon="@drawable/ic_action_filter_tags"
+        android:orderInCategory="2"
         android:title="@string/label_edit_tags"
-        app:showAsAction="never" />
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_toggle_drawer"
+        android:icon="@drawable/ic_drawer"
+        android:orderInCategory="3"
+        android:title="@string/action_toggle_drawer"
+        app:showAsAction="always" />
 </menu>
