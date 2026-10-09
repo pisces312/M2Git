@@ -141,6 +141,7 @@ public class SettingsBackupActivity extends AppCompatActivity {
                 String msg = getString(R.string.import_success,
                     result.getRepoSuccessCount(),
                     result.getCredentialSuccessCount(),
+                    result.tagsRegistered,
                     result.getRepoSkippedCount() + result.getCredentialSkippedCount());
                 Toast.makeText(SettingsBackupActivity.this, msg, Toast.LENGTH_LONG).show();
                 finish();

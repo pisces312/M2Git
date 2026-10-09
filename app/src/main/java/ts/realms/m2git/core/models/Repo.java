@@ -79,8 +79,12 @@ public class Repo implements Comparable<Repo>, Serializable {
     private String mLastCommitterEmail;
     private Date mLastCommitDate;
     private String mLastCommitMsg;
-    private int mGroupId;
-    private int mSortOrder;
+    private Date mTimeAdded;
+    /**
+     * 标签名，按标签展示顺序。标签存在 repo_tag/tag 两张表里，Cursor 构造拿不到，
+     * 由列表侧用 RepoDbManager.queryRepoTagMap() 批量填充；因此这里永不为 null。
+     */
+    private List<String> mTagNames = new ArrayList<>();
     private boolean isDeleted = false;
     // lazy load
     private Set<String> mRemotes;
@@ -98,8 +102,7 @@ public class Repo implements Comparable<Repo>, Serializable {
         mLastCommitterEmail = RepoContract.getLatestCommitterEmail(cursor);
         mLastCommitDate = RepoContract.getLatestCommitDate(cursor);
         mLastCommitMsg = RepoContract.getLatestCommitMsg(cursor);
-        mGroupId = RepoContract.getGroupId(cursor);
-        mSortOrder = RepoContract.getSortOrder(cursor);
+        mTimeAdded = RepoContract.getTimeAdded(cursor);
     }
 
     public static Repo createRepo(String localPath, String remoteURL, String status) {
@@ -324,20 +327,17 @@ public class Repo implements Comparable<Repo>, Serializable {
         mUsername = username;
     }
 
-    public int getGroupId() {
-        return mGroupId;
+    /** 入库（克隆/导入/新建）时间；v3 之前的老数据为 null。 */
+    public Date getTimeAdded() {
+        return mTimeAdded;
     }
 
-    public void setGroupId(int groupId) {
-        mGroupId = groupId;
+    public List<String> getTagNames() {
+        return mTagNames;
     }
 
-    public int getSortOrder() {
-        return mSortOrder;
-    }
-
-    public void setSortOrder(int sortOrder) {
-        mSortOrder = sortOrder;
+    public void setTagNames(List<String> tagNames) {
+        mTagNames = tagNames == null ? new ArrayList<>() : new ArrayList<>(tagNames);
     }
 
     public void cancelTask() {
@@ -387,8 +387,9 @@ public class Repo implements Comparable<Repo>, Serializable {
         out.writeObject(mLastCommitterEmail);
         out.writeObject(mLastCommitDate);
         out.writeObject(mLastCommitMsg);
-        out.writeInt(mGroupId);
-        out.writeInt(mSortOrder);
+        out.writeObject(mTimeAdded);
+        // ArrayList<String> 本身可序列化；与 readObject 的顺序必须严格一一对应
+        out.writeObject(mTagNames);
     }
 
     private void readObject(java.io.ObjectInputStream in) throws IOException,
@@ -403,8 +404,11 @@ public class Repo implements Comparable<Repo>, Serializable {
         mLastCommitterEmail = (String) in.readObject();
         mLastCommitDate = (Date) in.readObject();
         mLastCommitMsg = (String) in.readObject();
-        mGroupId = in.readInt();
-        mSortOrder = in.readInt();
+        mTimeAdded = (Date) in.readObject();
+        // 与 writeObject 的顺序严格对应；漏改一侧是编译期不报的字段错位
+        @SuppressWarnings("unchecked")
+        List<String> tagNames = (List<String>) in.readObject();
+        mTagNames = tagNames == null ? new ArrayList<>() : tagNames;
     }
 
     @Override

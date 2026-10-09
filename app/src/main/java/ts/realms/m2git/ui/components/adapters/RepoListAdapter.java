@@ -3,6 +3,7 @@ package ts.realms.m2git.ui.components.adapters;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -19,6 +20,7 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,11 +29,12 @@ import androidx.annotation.NonNull;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -40,77 +43,186 @@ import java.util.Set;
 import timber.log.Timber;
 import ts.realms.m2git.R;
 import ts.realms.m2git.core.models.Repo;
-import ts.realms.m2git.core.models.RepoGroup;
+import ts.realms.m2git.core.models.Tag;
 import ts.realms.m2git.local.database.RepoContract;
 import ts.realms.m2git.local.database.RepoDbManager;
+import ts.realms.m2git.ui.components.dialogs.TagPickerDialog;
+import ts.realms.m2git.ui.components.views.TagChipRenderer;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity;
 import ts.realms.m2git.ui.screens.main.RepoListActivity;
 import ts.realms.m2git.ui.screens.repoDetail.RepoDetailActivity;
 import ts.realms.m2git.utils.BasicFunctions;
 
 /**
- * Created by sheimi on 8/6/13.
+ * 仓库列表：平铺 + 标签筛选 + 排序。
+ * <p>
+ * 原来这里是一套「分组 + 组头 + 折叠」的结构，已被标签取代（设计见 docs/repo-tags-design.md）：
+ * 分组强制单一归属，而一个仓库天然同时属于多个维度；筛选一次就能得到目标子集并整屏铺开，
+ * 比分组「先看到几块再点进去」少一层。所以本类没有桶状视图，只有裁剪 + 排序。
  */
-public class RepoListAdapter extends ArrayAdapter<RepoListAdapter.ListItem> implements RepoDbManager.RepoDbObserver,
+public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager.RepoDbObserver,
     AdapterView.OnItemClickListener, AdapterView.OnItemLongClickListener {
 
     private static final int QUERY_TYPE_SEARCH = 0;
     private static final int QUERY_TYPE_QUERY = 1;
-    private static final String TAG = RepoListAdapter.class.getSimpleName();
+    private static final String TAG_CLASS = RepoListAdapter.class.getSimpleName();
 
-    public static final int SORT_BY_NAME_ASC = 0;
-    public static final int SORT_BY_NAME_DESC = 1;
-    public static final int SORT_BY_DATE_ASC = 2;
-    public static final int SORT_BY_DATE_DESC = 3;
+    public static final int SORT_KEY_NAME = 0;
+    public static final int SORT_KEY_LAST_COMMIT = 1;
+    public static final int SORT_KEY_TIME_ADDED = 2;
+    public static final int SORT_DIR_ASC = 0;
+    public static final int SORT_DIR_DESC = 1;
+
+    /**
+     * 偏好里存稳定字符串而不是位置索引：数组平移不会把用户的设置指到别的选项上。
+     * 顺序与 SORT_KEY_* / SORT_DIR_* 常量一一对应。
+     */
+    private static final String[] SORT_KEY_VALUES = {"name", "last_commit", "time_added"};
+    private static final String[] SORT_DIR_VALUES = {"asc", "desc"};
 
     private final DateFormat mCommitDateFormatter;
     private final RepoListActivity mActivity;
     private int mQueryType = QUERY_TYPE_QUERY;
     private String mSearchQueryString;
-    private int mSortMode = SORT_BY_NAME_ASC;
-    private final Set<Integer> mExpandedGroups = new HashSet<>();
 
-    public static class ListItem {
-        public static final int TYPE_GROUP = 0;
-        public static final int TYPE_REPO = 1;
+    private int mSortKey = SORT_KEY_NAME;
+    private int mSortDir = SORT_DIR_ASC;
+    /** true = 选中的标签要「全部满足」(AND)。标签的唯一职责是收窄结果，默认让多选更严格。 */
+    private boolean mMatchAll = true;
 
-        public int type;
-        public Repo repo;
-        public RepoGroup group;
-        public int repoCount; // for group header
-        public boolean isExpanded;
-
-        public static ListItem group(RepoGroup group, int repoCount, boolean isExpanded) {
-            ListItem item = new ListItem();
-            item.type = TYPE_GROUP;
-            item.group = group;
-            item.repoCount = repoCount;
-            item.isExpanded = isExpanded;
-            return item;
-        }
-
-        public static ListItem repo(Repo repo) {
-            ListItem item = new ListItem();
-            item.type = TYPE_REPO;
-            item.repo = repo;
-            return item;
-        }
-    }
+    /** 选中的标签 id（0 = 无标签伪标签）。顺序即筛选条里的展示顺序。 */
+    private final Set<Integer> mFilterTagIds = new LinkedHashSet<>();
+    /** 每次 requery 刷新的标签注册表，用来给选中的 id 找名字、并剔除已被删除的标签。 */
+    private List<Tag> mTagRegistry = new ArrayList<>();
+    private int mTotalRepoCount = 0;
+    private Runnable mOnListRefreshed;
 
     public RepoListAdapter(Context context) {
         super(context, 0);
         RepoDbManager.registerDbObserver(RepoContract.RepoEntry.TABLE_NAME, this);
         mActivity = (RepoListActivity) context;
         mCommitDateFormatter = android.text.format.DateFormat.getDateFormat(context);
+        readPreferences();
     }
 
-    public void setSortMode(int sortMode) {
-        mSortMode = sortMode;
+    // ---- 排序 / 筛选设置 ----
+
+    public int getSortKey() {
+        return mSortKey;
+    }
+
+    public int getSortDirection() {
+        return mSortDir;
+    }
+
+    public boolean isMatchAll() {
+        return mMatchAll;
+    }
+
+    public void setSortSettings(int sortKey, int sortDir) {
+        mSortKey = clamp(sortKey, SORT_KEY_VALUES.length);
+        mSortDir = clamp(sortDir, SORT_DIR_VALUES.length);
+        SharedPreferences.Editor editor = getPrefs().edit();
+        editor.putString(getString(R.string.pref_key_repo_sort_key), SORT_KEY_VALUES[mSortKey]);
+        editor.putString(getString(R.string.pref_key_repo_sort_direction), SORT_DIR_VALUES[mSortDir]);
+        editor.apply();
         requery();
     }
 
-    public int getSortMode() {
-        return mSortMode;
+    public void setMatchAll(boolean matchAll) {
+        mMatchAll = matchAll;
+        getPrefs().edit().putBoolean(getString(R.string.pref_key_repo_tag_match_all), matchAll).apply();
+        requery();
+    }
+
+    public Set<Integer> getFilterTagIds() {
+        return new LinkedHashSet<>(mFilterTagIds);
+    }
+
+    public void setFilterSelection(Collection<Integer> tagIds) {
+        mFilterTagIds.clear();
+        if (tagIds != null) {
+            mFilterTagIds.addAll(tagIds);
+        }
+        // 面板已经互斥掉了「无标签 + 具体标签」，这里是兜底：老偏好文件里可能存着这种组合，
+        // 或者用户在面板开着的时候切了匹配方式。与其展示一个必然为空的列表，不如丢掉伪标签。
+        if (mMatchAll && mFilterTagIds.size() > 1) {
+            mFilterTagIds.remove(Tag.UNTAGGED_ID);
+        }
+        persistFilterSelection();
+        requery();
+    }
+
+    /**
+     * 条目里点标签 chip 走这里：chip 手里只有标签名，先用注册表换成 id 再筛。
+     * 查不到就什么都不做 —— 列表渲染用的名字全部来自 registry，查不到意味着标签刚被删掉、
+     * 这行还是 requery 之前的旧画面，此时按它筛选只会得到一个必然为空的结果。
+     */
+    public void toggleFilterByName(String tagName) {
+        for (Tag tag : mTagRegistry) {
+            if (tag.getName().equals(tagName)) {
+                toggleFilter(tag.getId());
+                return;
+            }
+        }
+    }
+
+    /** 筛选条上点掉某个标签走这里。 */
+    public void toggleFilter(int tagId) {
+        if (mFilterTagIds.contains(tagId)) {
+            mFilterTagIds.remove(tagId);
+        } else {
+            mFilterTagIds.add(tagId);
+        }
+        persistFilterSelection();
+        requery();
+    }
+
+    public void clearFilters() {
+        if (mFilterTagIds.isEmpty()) return;
+        mFilterTagIds.clear();
+        persistFilterSelection();
+        requery();
+    }
+
+    public boolean isFilterActive() {
+        return !mFilterTagIds.isEmpty();
+    }
+
+    /** 筛选前该查询条件下的仓库总数，用于筛选条上的「3 / 12」。 */
+    public int getTotalRepoCount() {
+        return mTotalRepoCount;
+    }
+
+    /** 列表刷新后回调，让宿主 Activity 同步顶部筛选条（标签被改名/删除时也要跟着变）。 */
+    public void setOnListRefreshed(Runnable onListRefreshed) {
+        mOnListRefreshed = onListRefreshed;
+    }
+
+    /** 筛选面板的选项：全部标签 + 末尾的「无标签」，带命中数。 */
+    public List<Tag> getTagFilterOptions() {
+        List<Tag> options = loadTags();
+        options.add(new Tag(Tag.UNTAGGED_ID, "", 0, RepoDbManager.countReposWithoutTags()));
+        return options;
+    }
+
+    /** 编辑仓库标签 / 管理标签用：只有真实标签。 */
+    public List<Tag> getAssignableTags() {
+        return loadTags();
+    }
+
+    /** 当前选中的标签，按注册表顺序；「无标签」恒排最后。筛选条用它渲染。 */
+    public List<Tag> getSelectedFilters() {
+        List<Tag> selected = new ArrayList<>();
+        for (Tag tag : mTagRegistry) {
+            if (mFilterTagIds.contains(tag.getId())) {
+                selected.add(tag);
+            }
+        }
+        if (mFilterTagIds.contains(Tag.UNTAGGED_ID)) {
+            selected.add(new Tag(Tag.UNTAGGED_ID, "", 0, RepoDbManager.countReposWithoutTags()));
+        }
+        return selected;
     }
 
     public void searchRepo(String query) {
@@ -126,172 +238,143 @@ public class RepoListAdapter extends ArrayAdapter<RepoListAdapter.ListItem> impl
 
     private void requery() {
         Cursor cursor = null;
-        switch (mQueryType) {
-            case QUERY_TYPE_SEARCH:
-                cursor = RepoDbManager.searchRepo(mSearchQueryString);
-                break;
-            case QUERY_TYPE_QUERY:
-                cursor = RepoDbManager.queryAllRepo();
-                break;
+        if (mQueryType == QUERY_TYPE_SEARCH) {
+            cursor = RepoDbManager.searchRepo(mSearchQueryString);
+        } else {
+            cursor = RepoDbManager.queryAllRepo();
         }
-        List<Repo> repos = Repo.getRepoList(cursor);
-        cursor.close();
+        List<Repo> repos = cursor == null ? new ArrayList<>() : Repo.getRepoList(cursor);
+        if (cursor != null) cursor.close();
 
-        // Sort repos
-        sortRepos(repos);
+        mTagRegistry = loadTags();
+        Map<Long, List<String>> tagMap = RepoDbManager.queryRepoTagMap();
+        for (Repo repo : repos) {
+            repo.setTagNames(tagMap.get((long) repo.getID()));
+        }
 
-        // Build flat list with group headers
-        List<ListItem> items = buildGroupedList(repos);
+        pruneFilterSelection();
+        mTotalRepoCount = repos.size();
+        List<Repo> visible = applyTagFilter(repos);
+        Collections.sort(visible, repoComparator());
 
         clear();
-        addAll(items);
+        addAll(visible);
         notifyDataSetChanged();
-    }
-
-    private void sortRepos(List<Repo> repos) {
-        Comparator<Repo> comparator;
-        switch (mSortMode) {
-            case SORT_BY_NAME_DESC:
-                comparator = (a, b) -> b.getDisplayName().compareToIgnoreCase(a.getDisplayName());
-                break;
-            case SORT_BY_DATE_ASC:
-                comparator = (a, b) -> {
-                    Date da = a.getLastCommitDate();
-                    Date db = b.getLastCommitDate();
-                    if (da == null && db == null) return 0;
-                    if (da == null) return 1;
-                    if (db == null) return -1;
-                    return da.compareTo(db);
-                };
-                break;
-            case SORT_BY_DATE_DESC:
-                comparator = (a, b) -> {
-                    Date da = a.getLastCommitDate();
-                    Date db = b.getLastCommitDate();
-                    if (da == null && db == null) return 0;
-                    if (da == null) return 1;
-                    if (db == null) return -1;
-                    return db.compareTo(da);
-                };
-                break;
-            case SORT_BY_NAME_ASC:
-            default:
-                comparator = (a, b) -> a.getDisplayName().compareToIgnoreCase(b.getDisplayName());
-                break;
+        if (mOnListRefreshed != null) {
+            mOnListRefreshed.run();
         }
-        Collections.sort(repos, comparator);
     }
 
-    private List<ListItem> buildGroupedList(List<Repo> repos) {
-        List<ListItem> items = new ArrayList<>();
+    private List<Tag> loadTags() {
+        return Tag.getTagList(RepoDbManager.queryAllTags());
+    }
 
-        // Load all groups
-        Map<Integer, RepoGroup> groups = new HashMap<>();
-        Map<Integer, List<Repo>> groupRepos = new HashMap<>();
-        List<Repo> ungrouped = new ArrayList<>();
-
-        Cursor groupCursor = RepoDbManager.queryAllGroups();
-        if (groupCursor != null) {
-            groupCursor.moveToFirst();
-            while (!groupCursor.isAfterLast()) {
-                RepoGroup group = new RepoGroup(groupCursor);
-                groups.put(group.getId(), group);
-                groupRepos.put(group.getId(), new ArrayList<>());
-                groupCursor.moveToNext();
+    /**
+     * 标签被删掉后，它的 id 不该继续留在筛选里（否则顶部会挂着一个不存在的标签，
+     * 而结果集恒为空）。剪掉之后把剩下的写回，避免看不见的陈旧选择。
+     */
+    private void pruneFilterSelection() {
+        if (mFilterTagIds.isEmpty()) return;
+        Set<Integer> known = new LinkedHashSet<>();
+        known.add(Tag.UNTAGGED_ID);
+        for (Tag tag : mTagRegistry) {
+            known.add(tag.getId());
+        }
+        boolean changed = false;
+        Iterator<Integer> it = mFilterTagIds.iterator();
+        while (it.hasNext()) {
+            if (!known.contains(it.next())) {
+                it.remove();
+                changed = true;
             }
-            groupCursor.close();
         }
+        if (changed) persistFilterSelection();
+    }
 
-        // Distribute repos
+    private List<Repo> applyTagFilter(List<Repo> repos) {
+        if (mFilterTagIds.isEmpty()) return repos;
+        boolean wantUntagged = mFilterTagIds.contains(Tag.UNTAGGED_ID);
+        List<String> wanted = new ArrayList<>();
+        for (Tag tag : mTagRegistry) {
+            if (mFilterTagIds.contains(tag.getId())) {
+                wanted.add(tag.getName());
+            }
+        }
+        List<Repo> filtered = new ArrayList<>();
         for (Repo repo : repos) {
-            int gid = repo.getGroupId();
-            if (gid > 0 && groups.containsKey(gid)) {
-                groupRepos.get(gid).add(repo);
+            List<String> have = repo.getTagNames();
+            boolean hit;
+            if (mMatchAll) {
+                // AND：每个选中条件都要满足。「无标签」和具体标签同时选中必然无解
+                // （既有标签又不带任何标签的仓库不存在），由筛选面板互斥掉，这里不再特殊处理。
+                hit = (!wantUntagged || have.isEmpty()) && containsAll(have, wanted);
             } else {
-                ungrouped.add(repo);
+                // OR：任一条件命中即可，「无标签」同样是并集的一部分
+                hit = (wantUntagged && have.isEmpty()) || containsAny(have, wanted);
+            }
+            if (hit) {
+                filtered.add(repo);
             }
         }
+        return filtered;
+    }
 
-        // Add ungrouped repos first
-        if (!ungrouped.isEmpty()) {
-            for (Repo repo : ungrouped) {
-                items.add(ListItem.repo(repo));
-            }
+    /** 空 wanted 视为满足：AND 下「没提要求」不该把仓库筛掉。 */
+    private static boolean containsAll(List<String> have, List<String> wanted) {
+        for (String wanted1 : wanted) {
+            if (!have.contains(wanted1)) return false;
         }
-
-        // Add grouped repos
-        List<RepoGroup> sortedGroups = new ArrayList<>(groups.values());
-        Collections.sort(sortedGroups, (a, b) -> Integer.compare(a.getSortOrder(), b.getSortOrder()));
-
-        for (RepoGroup group : sortedGroups) {
-            List<Repo> groupRepoList = groupRepos.get(group.getId());
-            boolean isExpanded = mExpandedGroups.contains(group.getId());
-            items.add(ListItem.group(group, groupRepoList != null ? groupRepoList.size() : 0, isExpanded));
-            if (isExpanded && groupRepoList != null) {
-                for (Repo repo : groupRepoList) {
-                    items.add(ListItem.repo(repo));
-                }
-            }
-        }
-
-        return items;
-    }
-
-    @Override
-    public int getViewTypeCount() {
-        return 2;
-    }
-
-    @Override
-    public int getItemViewType(int position) {
-        return getItem(position).type;
-    }
-
-    @Override
-    public boolean isEnabled(int position) {
         return true;
     }
+
+    /** 空 wanted 视为不满足：OR 下没有可命中的标签，只剩「无标签」那条分支。 */
+    private static boolean containsAny(List<String> have, List<String> wanted) {
+        for (String wanted1 : wanted) {
+            if (have.contains(wanted1)) return true;
+        }
+        return false;
+    }
+
+    private Comparator<Repo> repoComparator() {
+        final int key = mSortKey;
+        final boolean desc = mSortDir == SORT_DIR_DESC;
+        if (key == SORT_KEY_NAME) {
+            return (a, b) -> desc
+                ? b.getDisplayName().compareToIgnoreCase(a.getDisplayName())
+                : a.getDisplayName().compareToIgnoreCase(b.getDisplayName());
+        }
+        return (a, b) -> {
+            Date da = dateOf(a, key);
+            Date db = dateOf(b, key);
+            if (da == null && db == null) {
+                return a.getDisplayName().compareToIgnoreCase(b.getDisplayName());
+            }
+            // 时间缺失恒沉底，不随升降序翻转：老库里这列是 NULL，翻转会把它们顶到最前
+            if (da == null) return 1;
+            if (db == null) return -1;
+            int cmp = da.compareTo(db);
+            return desc ? -cmp : cmp;
+        };
+    }
+
+    private static Date dateOf(Repo repo, int sortKey) {
+        return sortKey == SORT_KEY_TIME_ADDED ? repo.getTimeAdded() : repo.getLastCommitDate();
+    }
+
+    // ---- 渲染 ----
 
     @NonNull
     @Override
     public View getView(int position, View convertView, @NonNull ViewGroup parent) {
-        ListItem item = getItem(position);
-        if (item.type == ListItem.TYPE_GROUP) {
-            return getGroupView(position, convertView, parent);
-        }
-        return getRepoView(position, convertView, parent);
-    }
-
-    private View getGroupView(int position, View convertView, ViewGroup parent) {
-        GroupViewHolder holder;
-        if (convertView == null) {
-            convertView = LayoutInflater.from(getContext()).inflate(R.layout.repo_listitem_group, parent, false);
-            holder = new GroupViewHolder();
-            holder.groupArrow = convertView.findViewById(R.id.groupArrow);
-            holder.groupName = convertView.findViewById(R.id.groupName);
-            holder.groupCount = convertView.findViewById(R.id.groupCount);
-            convertView.setTag(holder);
-        } else {
-            holder = (GroupViewHolder) convertView.getTag();
-        }
-        ListItem item = getItem(position);
-        holder.groupArrow.setText(item.isExpanded ? "\u25BC" : "\u25B6");
-        holder.groupName.setText(item.group.getName());
-        holder.groupCount.setText("(" + item.repoCount + ")");
-        return convertView;
-    }
-
-    private View getRepoView(int position, View convertView, ViewGroup parent) {
         if (convertView == null) {
             convertView = newView(getContext(), parent);
         }
-        bindView(convertView, position);
+        bindView(convertView, getItem(position));
         return convertView;
     }
 
     public View newView(Context context, ViewGroup parent) {
-        LayoutInflater inflater = LayoutInflater.from(context);
-        View view = inflater.inflate(R.layout.repo_listitem, parent, false);
+        View view = LayoutInflater.from(context).inflate(R.layout.repo_listitem, parent, false);
         RepoListItemHolder holder = new RepoListItemHolder();
         holder.repoTitle = view.findViewById(R.id.repoTitle);
         holder.repoRemote = view.findViewById(R.id.repoRemote);
@@ -303,16 +386,29 @@ public class RepoListAdapter extends ArrayAdapter<RepoListAdapter.ListItem> impl
         holder.commitMsgContainer = view.findViewById(R.id.commitMsgContainer);
         holder.progressMsg = view.findViewById(R.id.progressMsg);
         holder.cancelBtn = view.findViewById(R.id.cancelBtn);
+        holder.tagRow = view.findViewById(R.id.tagRow);
+        holder.tagRowScroll = view.findViewById(R.id.tagRowScroll);
+        // HorizontalScrollView 的构造函数在 XML 属性应用完之后才调用 setFocusableInTouchMode(true)，
+        // 所以写在布局里的 focusable/focusableInTouchMode="false" 会被它覆盖 —— 必须在这里关掉。
+        // 只要行里存在可聚焦后代，AbsListView.onTouchEvent 的 child.hasFocusable() 就为真，
+        // 它跳过整行的 press 记账，短按和长按会一起失效（真机 + 模拟器实测）。
+        holder.tagRowScroll.setFocusable(false);
+        holder.tagRowScroll.setFocusableInTouchMode(false);
+        // 保险：标签 chip 现在可点击（点了按该标签筛选），一旦将来谁把它们设成可聚焦，整行的
+        // 短按与长按会一起失效（原因见上面 tagRowScroll 那条注释）。这里直接把 tagRow 这一支
+        // 的可聚焦性挡掉，chip 的 clickable 不受影响。
+        holder.tagRow.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         view.setTag(holder);
         return view;
     }
 
-    public void bindView(View view, int position) {
+    public void bindView(View view, final Repo repo) {
+        if (repo == null) return;
         RepoListItemHolder holder = (RepoListItemHolder) view.getTag();
-        final Repo repo = getItem(position).repo;
 
         holder.repoTitle.setText(repo.getDisplayName());
         holder.repoRemote.setText(repo.getRemoteURL());
+        TagChipRenderer.fillTagRow(holder.tagRow, repo.getTagNames(), this::toggleFilterByName);
 
         if (!repo.getRepoStatus().equals(RepoContract.REPO_STATUS_NULL)) {
             holder.commitMsgContainer.setVisibility(View.GONE);
@@ -345,18 +441,8 @@ public class RepoListAdapter extends ArrayAdapter<RepoListAdapter.ListItem> impl
 
     @Override
     public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
-        ListItem item = getItem(position);
-        if (item.type == ListItem.TYPE_GROUP) {
-            int groupId = item.group.getId();
-            if (mExpandedGroups.contains(groupId)) {
-                mExpandedGroups.remove(groupId);
-            } else {
-                mExpandedGroups.add(groupId);
-            }
-            requery();
-            return;
-        }
-        Repo repo = item.repo;
+        Repo repo = getItem(position);
+        if (repo == null) return;
         if (repo.isExternal() && mActivity.checkAndRequestAccessAllFilesPermission(0)) {
             return;
         }
@@ -367,9 +453,8 @@ public class RepoListAdapter extends ArrayAdapter<RepoListAdapter.ListItem> impl
 
     @Override
     public boolean onItemLongClick(AdapterView<?> adapterView, View view, int position, long id) {
-        ListItem item = getItem(position);
-        if (item.type == ListItem.TYPE_GROUP) return false;
-        final Repo repo = item.repo;
+        final Repo repo = getItem(position);
+        if (repo == null) return false;
         if (!repo.getRepoStatus().equals(RepoContract.REPO_STATUS_NULL)) return false;
         Context context = getContext();
         if (context instanceof BaseCompatActivity) {
@@ -380,14 +465,15 @@ public class RepoListAdapter extends ArrayAdapter<RepoListAdapter.ListItem> impl
 
     private void showRepoOptionsDialog(final BaseCompatActivity context, final Repo repo) {
 
+        // 位置索引要和 R.array.dialog_choose_repo_action_items 一一对应（两种语言同序）；
+        // 第 4 项原来是「移动到分组」，现在是「编辑标签」，位置不变。
         BaseCompatActivity.onOptionDialogClicked[] dialog =
             new BaseCompatActivity.onOptionDialogClicked[]{
                 () -> showRenameRepoDialog(context, repo),
                 () -> showRemoveRepoDialog(context, repo),
                 () -> createShortcut(context, repo),
-                () -> showMoveToGroupDialog(context, repo),
+                () -> showEditTagsDialog(context, repo),
                 null};
-        // 区分大小写
         final String remoteRaw = repo.getRemoteURL();
         final String remoteRawLowerCase = repo.getRemoteURL().toLowerCase();
         boolean repoHasHttpRemote =
@@ -438,7 +524,8 @@ public class RepoListAdapter extends ArrayAdapter<RepoListAdapter.ListItem> impl
                             intentList.toArray(new Parcelable[intentList.size()]));
                         context.startActivity(chooserIntent);
                     } else {
-                        Timber.tag(TAG).i(context.getString(R.string.dialog_open_remote_no_app_available));
+                        Timber.tag(TAG_CLASS).i(context.getString(
+                            R.string.dialog_open_remote_no_app_available));
                         Toast.makeText(context, R.string.dialog_open_remote_no_app_available,
                             Toast.LENGTH_LONG).show();
                     }
@@ -446,58 +533,27 @@ public class RepoListAdapter extends ArrayAdapter<RepoListAdapter.ListItem> impl
             };
         }
 
+        List<String> stringList = new ArrayList<>(5);
+        stringList.addAll(Arrays.asList(context.getResources().getStringArray(
+            R.array.dialog_choose_repo_action_items)));
+        stringList.add(context.getString(R.string.label_edit_tags));
         if (repoHasHttpRemote) {
-            List<String> stringList = new ArrayList<>(5);
-            stringList.addAll(Arrays.asList(context.getResources().getStringArray(R.array.dialog_choose_repo_action_items)));
-            stringList.add(context.getString(R.string.dialog_move_to_group));
             stringList.add(context.getString(R.string.dialog_open_remote));
-            String[] options_values = stringList.toArray(new String[0]);
-
-            context.showOptionsDialog(R.string.dialog_choose_option, options_values, dialog);
-        } else {
-            List<String> stringList = new ArrayList<>(4);
-            stringList.addAll(Arrays.asList(context.getResources().getStringArray(R.array.dialog_choose_repo_action_items)));
-            stringList.add(context.getString(R.string.dialog_move_to_group));
-            String[] options_values = stringList.toArray(new String[0]);
-
-            context.showOptionsDialog(R.string.dialog_choose_option, options_values, dialog);
         }
+        context.showOptionsDialog(R.string.dialog_choose_option,
+            stringList.toArray(new String[0]), dialog);
     }
 
-    private void showMoveToGroupDialog(final BaseCompatActivity context, final Repo repo) {
-        Cursor cursor = RepoDbManager.queryAllGroups();
-        List<RepoGroup> groups = new ArrayList<>();
-        if (cursor != null) {
-            cursor.moveToFirst();
-            while (!cursor.isAfterLast()) {
-                groups.add(new RepoGroup(cursor));
-                cursor.moveToNext();
-            }
-            cursor.close();
-        }
-
-        List<String> options = new ArrayList<>();
-        options.add(context.getString(R.string.group_none));
-        for (RepoGroup g : groups) {
-            options.add(g.getName());
-        }
-
-        final int[] groupIds = new int[options.size()];
-        groupIds[0] = 0;
-        for (int i = 0; i < groups.size(); i++) {
-            groupIds[i + 1] = groups.get(i).getId();
-        }
-
-        BaseCompatActivity.onOptionDialogClicked[] listeners = new BaseCompatActivity.onOptionDialogClicked[options.size()];
-        for (int i = 0; i < options.size(); i++) {
-            final int gid = groupIds[i];
-            listeners[i] = () -> {
-                RepoDbManager.setRepoGroup(repo.getID(), gid);
-            };
-        }
-
-        context.showOptionsDialog(R.string.dialog_move_to_group_title,
-            options.toArray(new String[0]), listeners);
+    private void showEditTagsDialog(final BaseCompatActivity context, final Repo repo) {
+        TagPickerDialog.show(context,
+            R.string.dialog_edit_tags_title,
+            this::loadTags,
+            Tag.idsOfNames(loadTags(), repo.getTagNames()),
+            true,   // 允许就地新建
+            false,  // 编辑场景不需要命中数
+            false,  // 编辑场景没有「无标签」伪标签，互斥不参与
+            tagIds -> RepoDbManager.setRepoTags(repo.getID(),
+                Tag.namesOfIds(loadTags(), tagIds)));
     }
 
     private void createShortcut(BaseCompatActivity context, final Repo repo) {
@@ -541,6 +597,66 @@ public class RepoListAdapter extends ArrayAdapter<RepoListAdapter.ListItem> impl
             });
     }
 
+    // ---- 偏好 ----
+
+    private void readPreferences() {
+        SharedPreferences prefs = getPrefs();
+        mSortKey = indexOfValue(prefs.getString(getString(R.string.pref_key_repo_sort_key),
+            SORT_KEY_VALUES[SORT_KEY_NAME]), SORT_KEY_VALUES, SORT_KEY_NAME);
+        mSortDir = indexOfValue(prefs.getString(getString(R.string.pref_key_repo_sort_direction),
+            SORT_DIR_VALUES[SORT_DIR_ASC]), SORT_DIR_VALUES, SORT_DIR_ASC);
+        mMatchAll = prefs.getBoolean(getString(R.string.pref_key_repo_tag_match_all), true);
+
+        // 选中的标签是视图态，存在另一个文件里：BackupManager 全量搬 preference_file_key，
+        // 放一起会把「当前筛选」也备份走，还原后面对一个空列表是很糟的体验。
+        String csv = getViewStatePrefs().getString(
+            getString(R.string.pref_key_repo_filter_tags), "");
+        for (String part : csv.split(",")) {
+            if (part.trim().isEmpty()) continue;
+            try {
+                mFilterTagIds.add(Integer.parseInt(part.trim()));
+            } catch (NumberFormatException ignored) {
+                // 手改过偏好文件之类，跳过而不是崩
+            }
+        }
+    }
+
+    private void persistFilterSelection() {
+        StringBuilder sb = new StringBuilder();
+        for (Integer id : mFilterTagIds) {
+            if (sb.length() > 0) sb.append(',');
+            sb.append(id);
+        }
+        getViewStatePrefs().edit()
+            .putString(getString(R.string.pref_key_repo_filter_tags), sb.toString()).apply();
+    }
+
+    private SharedPreferences getPrefs() {
+        return mActivity.getSharedPreferences(getString(R.string.preference_file_key),
+            Context.MODE_PRIVATE);
+    }
+
+    private SharedPreferences getViewStatePrefs() {
+        return mActivity.getSharedPreferences(getString(R.string.repo_view_state_file),
+            Context.MODE_PRIVATE);
+    }
+
+    private String getString(int resId) {
+        return mActivity.getString(resId);
+    }
+
+    private static int clamp(int value, int length) {
+        return value < 0 ? 0 : (value >= length ? length - 1 : value);
+    }
+
+    /** 存储值 -&gt; 常量序号；不认识的值（旧版本写的、手改的）回退到 defaultIndex。 */
+    private static int indexOfValue(String stored, String[] values, int defaultIndex) {
+        for (int i = 0; i < values.length; i++) {
+            if (values[i].equals(stored)) return i;
+        }
+        return defaultIndex;
+    }
+
     private class RepoListItemHolder {
         public TextView repoTitle;
         public TextView repoRemote;
@@ -552,12 +668,8 @@ public class RepoListAdapter extends ArrayAdapter<RepoListAdapter.ListItem> impl
         public View commitMsgContainer;
         public TextView progressMsg;
         public ImageView cancelBtn;
+        public LinearLayout tagRow;
+        /** 标签行的外层滚动容器；focusable 在 newView 里关掉，见那里的注释。 */
+        public View tagRowScroll;
     }
-
-    private static class GroupViewHolder {
-        public TextView groupArrow;
-        public TextView groupName;
-        public TextView groupCount;
-    }
-
 }

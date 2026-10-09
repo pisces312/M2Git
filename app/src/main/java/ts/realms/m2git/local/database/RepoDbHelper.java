@@ -15,7 +15,7 @@ import timber.log.Timber;
  */
 public class RepoDbHelper extends SQLiteOpenHelper {
 
-    private static final int DATABASE_VERSION = 2;
+    private static final int DATABASE_VERSION = 4;
     private static final String DATABASE_NAME = "repo.db";
 
     public RepoDbHelper(Context context) {
@@ -51,6 +51,7 @@ public class RepoDbHelper extends SQLiteOpenHelper {
         sqLiteDatabase.execSQL(RepoContract.REPO_ENTRY_CREATE);
         sqLiteDatabase.execSQL(RepoContract.REPO_CREDENTIALS_CREATE);
         sqLiteDatabase.execSQL(RepoContract.REPO_GROUP_CREATE);
+        createTagTables(sqLiteDatabase);
     }
 
     @Override
@@ -63,5 +64,24 @@ public class RepoDbHelper extends SQLiteOpenHelper {
                 + " ADD COLUMN " + RepoContract.RepoEntry.COLUMN_NAME_SORT_ORDER + " INTEGER DEFAULT 0");
             sqLiteDatabase.execSQL(RepoContract.REPO_GROUP_CREATE);
         }
+        if (oldVersion < 3) {
+            // v3: 仓库入库（克隆/导入/新建）时间。老数据留 NULL，排序时沉底，不伪造时间。
+            sqLiteDatabase.execSQL("ALTER TABLE " + RepoContract.RepoEntry.TABLE_NAME
+                + " ADD COLUMN " + RepoContract.RepoEntry.COLUMN_NAME_TIME_ADDED + " INTEGER DEFAULT NULL");
+        }
+        if (oldVersion < 4) {
+            // v4: 标签取代分组。号段说明见 docs/repo-tags-design.md —— v3 已被带分组的构建
+            // 占用过（有的设备库已经是 v3），把建表并进 v3 会被 onUpgrade 静默跳过。
+            createTagTables(sqLiteDatabase);
+            sqLiteDatabase.execSQL(RepoContract.TAG_MIGRATE_FROM_GROUPS);
+            sqLiteDatabase.execSQL(RepoContract.REPO_TAG_MIGRATE_FROM_GROUPS);
+        }
+    }
+
+    private void createTagTables(SQLiteDatabase sqLiteDatabase) {
+        sqLiteDatabase.execSQL(RepoContract.TAG_CREATE);
+        sqLiteDatabase.execSQL(RepoContract.REPO_TAG_CREATE);
+        sqLiteDatabase.execSQL(RepoContract.REPO_TAG_INDEX_BY_TAG);
+        sqLiteDatabase.execSQL(RepoContract.REPO_TAG_INDEX_BY_REPO);
     }
 }

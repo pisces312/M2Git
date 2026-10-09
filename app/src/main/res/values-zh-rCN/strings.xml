@@ -18,7 +18,8 @@
     <string name="action_mode_show_public_key">显示公钥</string>
     <string name="action_mode_edit_key_password">编辑密钥密码</string>
     <string name="action_sort">排序</string>
-    <string name="action_groups">分组</string>
+    <string name="action_tags">标签</string>
+    <string name="action_tag_filter">按标签筛选</string>
     <string name="action_feedback">反馈</string>
     <string name="action_choose_language">选择语言</string>
     <string name="action_mode_diff">比较</string>
@@ -83,20 +84,32 @@
     <!-- Dialog Msg -->
     <string name="dialog_choose_branch_title">选择分支</string>
     <string name="dialog_choose_option">选择选项…</string>
-    <string name="dialog_move_to_group">移动到分组</string>
-    <string name="dialog_move_to_group_title">选择分组</string>
-    <string name="group_none">未分组</string>
-    <string name="dialog_manage_groups_title">管理分组</string>
-    <string name="dialog_new_group_title">新建分组</string>
-    <string name="dialog_new_group_hint">分组名称</string>
-    <string name="dialog_rename_group_title">重命名分组</string>
-    <string name="dialog_delete_group_title">删除分组</string>
-    <string name="dialog_delete_group_msg">删除此分组？仓库将变为未分组。</string>
-    <string name="sort_name_asc">名称 升序</string>
-    <string name="sort_name_desc">名称 降序</string>
-    <string name="sort_date_asc">日期 最早优先</string>
-    <string name="sort_date_desc">日期 最新优先</string>
-    <string name="error_rename_group_fail">重命名分组失败</string>
+    <string name="label_edit_tags">编辑标签</string>
+    <string name="dialog_edit_tags_title">编辑标签</string>
+    <string name="dialog_manage_tags_title">管理标签</string>
+    <string name="dialog_new_tag_title">新建标签</string>
+    <string name="dialog_new_tag_hint">标签名称</string>
+    <string name="dialog_rename_tag_title">重命名标签</string>
+    <string name="dialog_delete_tag_title">删除标签</string>
+    <string name="dialog_delete_tag_msg">删除此标签？所有仓库上的该标签都会被移除。</string>
+    <string name="tag_untagged">无标签</string>
+    <string name="error_rename_tag_exists">已存在同名标签</string>
+    <string name="label_add">添加</string>
+    <string name="label_clear_filter">清除</string>
+    <string name="filter_mode_all">全部满足</string>
+    <string name="filter_mode_any">任一满足</string>
+    <string name="repo_list_empty">还没有仓库</string>
+    <string name="repo_list_empty_filtered">没有符合这些标签的仓库</string>
+
+    <!-- 排序对话框：排序依据与方向是两个独立选择，不再组合成四项 -->
+    <string name="dialog_sort_title">仓库排序</string>
+    <string name="sort_section_key">排序依据</string>
+    <string name="sort_key_name">名称</string>
+    <string name="sort_key_last_commit">最后提交</string>
+    <string name="sort_key_time_added">添加时间</string>
+    <string name="sort_section_direction">方向</string>
+    <string name="sort_dir_asc">升序</string>
+    <string name="sort_dir_desc">降序</string>
     <string name="dialog_rename_repo_title">重命名仓库</string>
     <string name="dialog_rename_repo_hint">仓库名称</string>
     <string name="dialog_delete_repo_title">确认删除</string>
@@ -210,5 +223,8 @@
     <string name="error_file_not_found">文件未找到！</string>
     <string name="dialog_access_all_files_title">所有文件的访问</string>
     <string name="dialog_access_all_files_msg">请允许访问所有文件以从外部存储读取/写入存储库。</string>
+    <string name="export_success">导出成功：%1$d 个仓库，%2$d 个凭据</string>
+    <string name="import_success">导入成功：%1$d 个仓库，%2$d 个凭据，%3$d 个标签，跳过 %4$d 项</string>
+    <string name="backup_error">备份出错：%s</string>
 
 </resources>

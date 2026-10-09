@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  工具栏标签筛选的弹窗内容：只有一列复选框，勾一个立刻筛一次。
+  没有复用 dialog_tag_picker.xml —— 那里 ScrollView 是 0dp + weight（为 AlertDialog 的高度
+  分配服务的），放进 PopupWindow 会塌成 0 高。复选框本身复用 TagPickerDialog.renderOptions。
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingLeft="@dimen/general_padding_larger"
+    android:paddingRight="@dimen/general_padding_larger"
+    android:paddingTop="@dimen/general_padding"
+    android:paddingBottom="@dimen/general_padding">
+
+    <LinearLayout
+        android:id="@+id/tagCheckList"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical" />
+</ScrollView>

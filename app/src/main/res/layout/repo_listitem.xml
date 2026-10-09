@@ -122,5 +122,30 @@
             app:srcCompat="@drawable/ic_action_cancel" />
     </RelativeLayout>
 
+    <!--
+      标签行：单行横向滚动，不换行，超宽的部分滑出来 —— 标签再多也不占第二行，条目高度恒定的
+      同时「全都看得到」（原来是超出 4 个折叠成 "+n"，第 5 个起必须长按进编辑才看得到）。
+      chip 本身不可点击（ListView 行内放可点击子 view 会抢走整行点击），筛选走顶部筛选条和对话框。
+      没有标签时 TagChipRenderer 把这层连同外层一起设为 GONE，条目回到未加标签时的高度。
+
+      注意：这里**不写** focusable="false" —— HorizontalScrollView 的构造函数在 XML 属性应用完之后
+      才调用 setFocusableInTouchMode(true)，XML 里写了也会被覆盖。关掉可聚焦的唯一有效位置是
+      RepoListAdapter.newView。行里只要有可聚焦后代，AbsListView 就不给这一行做 press 记账
+      （child.hasFocusable() 为真即跳过），整行的短按和长按会一起失效——真机与模拟器实测均如此。
+    -->
+    <HorizontalScrollView
+        android:id="@+id/tagRowScroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/tagRow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/general_vertical_margin"
+            android:orientation="horizontal"
+            android:visibility="gone" />
+    </HorizontalScrollView>
 
 </LinearLayout>

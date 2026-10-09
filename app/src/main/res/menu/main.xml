@@ -7,13 +7,23 @@
         android:title="@string/action_search"
         app:actionViewClass="android.widget.SearchView"
         app:showAsAction="always|collapseActionView" />
+    <!--
+      工具栏上的标签筛选：图标落在放大镜与溢出三点之间（XML 顺序即工具栏从左到右的顺序）。
+      用 actionLayout 而不是 android:icon —— 默认 ActionBar 拿不到菜单项自己的 View，
+      而弹窗要锚在「点击位置」，只能自己造一个 View 当锚点（代价是点击也由它自己接管）。
+    -->
+    <item
+        android:id="@+id/action_tag_filter"
+        android:title="@string/action_tag_filter"
+        app:actionLayout="@layout/action_view_tag_filter"
+        app:showAsAction="always" />
     <item
         android:id="@+id/action_sort"
         android:title="@string/action_sort"
         app:showAsAction="never" />
     <item
-        android:id="@+id/action_groups"
-        android:title="@string/action_groups"
+        android:id="@+id/action_tags"
+        android:title="@string/action_tags"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_new"

@@ -5,15 +5,22 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.ScrollView;
 import android.widget.SearchView;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.content.ContextCompat;
 import androidx.core.view.MenuItemCompat;
 import androidx.databinding.DataBindingUtil;
 import androidx.lifecycle.ViewModelProvider;
@@ -29,7 +36,7 @@ import ts.realms.m2git.MainApplication;
 import ts.realms.m2git.R;
 import ts.realms.m2git.core.command.tasks.remote.CloneTask;
 import ts.realms.m2git.core.models.Repo;
-import ts.realms.m2git.core.models.RepoGroup;
+import ts.realms.m2git.core.models.Tag;
 import ts.realms.m2git.core.network.ssh.PrivateKeyUtils;
 import ts.realms.m2git.core.network.transport.MGitHttpConnectionFactory;
 import ts.realms.m2git.databinding.ActivityMainBinding;
@@ -38,8 +45,10 @@ import ts.realms.m2git.local.preference.PreferenceHelper;
 import ts.realms.m2git.ui.components.adapters.RepoListAdapter;
 import ts.realms.m2git.ui.components.dialogs.DummyDialogListener;
 import ts.realms.m2git.ui.components.dialogs.ImportLocalRepoDialog;
+import ts.realms.m2git.ui.components.dialogs.TagFilterPopup;
 import ts.realms.m2git.ui.components.fragments.ExploreFileActivity;
 import ts.realms.m2git.ui.components.fragments.ImportRepositoryActivity;
+import ts.realms.m2git.ui.components.views.TagChipRenderer;
 import ts.realms.m2git.ui.screens.repoDetail.RepoDetailActivity;
 import ts.realms.m2git.ui.screens.settings.UserSettingsActivity;
 
@@ -78,6 +87,13 @@ public class RepoListActivity extends BaseCompatActivity {
         mRepoListAdapter.queryAllRepo();
         activityMainBinding.repoList.setOnItemClickListener(mRepoListAdapter);
         activityMainBinding.repoList.setOnItemLongClickListener(mRepoListAdapter);
+        activityMainBinding.repoList.setEmptyView(activityMainBinding.repoListEmpty);
+        // 列表每次重算后同步顶部筛选条：标签在别处被改名/删除时，这里跟着变
+        mRepoListAdapter.setOnListRefreshed(this::renderFilterBar);
+        activityMainBinding.filterClear.setOnClickListener(v -> mRepoListAdapter.clearFilters());
+        activityMainBinding.filterMatchMode.setOnClickListener(v ->
+            mRepoListAdapter.setMatchAll(!mRepoListAdapter.isMatchAll()));
+        renderFilterBar();
         mContext = getApplicationContext();
 
         Uri uri = this.getIntent().getData();
@@ -137,6 +153,7 @@ public class RepoListActivity extends BaseCompatActivity {
         getMenuInflater().inflate(R.menu.main, menu);
         MenuItem searchItem = menu.findItem(R.id.action_search);
         configSearchAction(searchItem);
+        configTagFilterAction(menu.findItem(R.id.action_tag_filter));
         return true;
     }
 
@@ -159,92 +176,220 @@ public class RepoListActivity extends BaseCompatActivity {
         } else if (itemId == R.id.action_sort) {
             showSortDialog();
             return true;
-        } else if (itemId == R.id.action_groups) {
-            showManageGroupsDialog();
+        } else if (itemId == R.id.action_tags) {
+            showManageTagsDialog();
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
-    private void showSortDialog() {
-        String[] sortOptions = {
-            getString(R.string.sort_name_asc),
-            getString(R.string.sort_name_desc),
-            getString(R.string.sort_date_asc),
-            getString(R.string.sort_date_desc)
-        };
-        int currentSort = mRepoListAdapter.getSortMode();
-        showOptionsDialog(R.string.action_sort, sortOptions, new onOptionDialogClicked[]{
-            () -> mRepoListAdapter.setSortMode(RepoListAdapter.SORT_BY_NAME_ASC),
-            () -> mRepoListAdapter.setSortMode(RepoListAdapter.SORT_BY_NAME_DESC),
-            () -> mRepoListAdapter.setSortMode(RepoListAdapter.SORT_BY_DATE_ASC),
-            () -> mRepoListAdapter.setSortMode(RepoListAdapter.SORT_BY_DATE_DESC)
-        });
+    // ---- 顶部常驻筛选条 ----
+
+    /**
+     * 每次列表重算后调用。没筛选时整条隐藏，不占走一行列表高度；有筛选时选中的标签一直挂在顶上，
+     * 往下翻仓库也随时看得到当前筛的是什么。已选标签用实底 chip（与条目里的浅底同色），点一下即取消。
+     */
+    private void renderFilterBar() {
+        List<Tag> selected = mRepoListAdapter.getSelectedFilters();
+        boolean active = !selected.isEmpty();
+        activityMainBinding.repoFilterBar.setVisibility(active ? View.VISIBLE : View.GONE);
+        activityMainBinding.repoFilterDivider.setVisibility(active ? View.VISIBLE : View.GONE);
+        activityMainBinding.repoListEmpty.setText(getString(active
+            ? R.string.repo_list_empty_filtered : R.string.repo_list_empty));
+        if (!active) return;
+
+        activityMainBinding.filterMatchMode.setText(getString(mRepoListAdapter.isMatchAll()
+            ? R.string.filter_mode_all : R.string.filter_mode_any));
+        activityMainBinding.filterMatchMode
+            .setBackground(TagChipRenderer.neutralPill(this, true));
+
+        activityMainBinding.filterChips.removeAllViews();
+        for (Tag tag : selected) {
+            final int tagId = tag.getId();
+            boolean untagged = tag.isUntagged();
+            String name = untagged ? getString(R.string.tag_untagged) : tag.getName();
+            activityMainBinding.filterChips.addView(TagChipRenderer.createSelectedChip(this, name,
+                untagged ? "untagged" : tag.getName(),
+                v -> mRepoListAdapter.toggleFilter(tagId)));
+        }
+        // 「命中 / 总数」纯数字，无需文案
+        activityMainBinding.filterCount.setText(
+            mRepoListAdapter.getCount() + " / " + mRepoListAdapter.getTotalRepoCount());
     }
 
-    private void showManageGroupsDialog() {
-        Cursor cursor = RepoDbManager.queryAllGroups();
-        final List<RepoGroup> groups = new ArrayList<>();
-        if (cursor != null) {
-            cursor.moveToFirst();
-            while (!cursor.isAfterLast()) {
-                groups.add(new RepoGroup(cursor));
-                cursor.moveToNext();
-            }
-            cursor.close();
-        }
+    // ---- 排序 ----
 
+    /**
+     * 排序依据与方向分开选，而不是列成「名称升序 / 名称降序 / …」的组合项：
+     * 组合式列表每加一种排序键就要多两个选项，而偏好里存组合索引意味着选项平移会改用户的设置。
+     */
+    private void showSortDialog() {
+        final int currentKey = mRepoListAdapter.getSortKey();
+        final int currentDir = mRepoListAdapter.getSortDirection();
+        final RadioButton[] keyRadios = {
+            makeRadio(R.string.sort_key_name, currentKey == RepoListAdapter.SORT_KEY_NAME),
+            makeRadio(R.string.sort_key_last_commit,
+                currentKey == RepoListAdapter.SORT_KEY_LAST_COMMIT),
+            makeRadio(R.string.sort_key_time_added,
+                currentKey == RepoListAdapter.SORT_KEY_TIME_ADDED)
+        };
+        final RadioButton[] dirRadios = {
+            makeRadio(R.string.sort_dir_asc, currentDir == RepoListAdapter.SORT_DIR_ASC),
+            makeRadio(R.string.sort_dir_desc, currentDir == RepoListAdapter.SORT_DIR_DESC)
+        };
+        // 选项顺序即 SORT_KEY_* / SORT_DIR_* 常量顺序，取中时用下标回推，不碰 R.id 常量（AGP9 下非 final）
+        final RadioGroup keyGroup = new RadioGroup(this);
+        final RadioGroup dirGroup = new RadioGroup(this);
+        fillRadioGroup(keyGroup, keyRadios);
+        fillRadioGroup(dirGroup, dirRadios);
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        int margin = getResources().getDimensionPixelSize(R.dimen.general_padding_larger);
+        content.setPadding(margin, margin / 2, margin, 0);
+        content.addView(sectionHeader(R.string.sort_section_key));
+        content.addView(keyGroup);
+        content.addView(sectionHeader(R.string.sort_section_direction));
+        content.addView(dirGroup);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(content);
+
+        new AlertDialog.Builder(this)
+            .setTitle(R.string.dialog_sort_title)
+            .setView(scroll)
+            .setPositiveButton(R.string.label_ok, (dialog, which) -> mRepoListAdapter.setSortSettings(
+                checkedIndexOf(keyGroup, keyRadios, currentKey),
+                checkedIndexOf(dirGroup, dirRadios, currentDir)))
+            .setNegativeButton(R.string.label_cancel, new DummyDialogListener())
+            .show();
+    }
+
+    private RadioButton makeRadio(int labelRes, boolean checked) {
+        RadioButton radio = new RadioButton(this);
+        radio.setText(labelRes);
+        radio.setChecked(checked);
+        radio.setId(View.generateViewId());
+        int pad = radio.getPaddingTop();
+        radio.setPadding(pad, pad, pad, pad);
+        return radio;
+    }
+
+    private void fillRadioGroup(RadioGroup group, RadioButton[] radios) {
+        group.setOrientation(RadioGroup.VERTICAL);
+        for (RadioButton radio : radios) {
+            group.addView(radio);
+        }
+    }
+
+    /** 取选中项下标；异常状态（没有选中）回退到原值，而不是把排序悄悄改成第一项。 */
+    private static int checkedIndexOf(RadioGroup group, RadioButton[] radios, int fallback) {
+        int checkedId = group.getCheckedRadioButtonId();
+        for (int i = 0; i < radios.length; i++) {
+            if (radios[i].getId() == checkedId) return i;
+        }
+        return fallback;
+    }
+
+    private TextView sectionHeader(int labelRes) {
+        TextView header = new TextView(this);
+        header.setText(labelRes);
+        header.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        header.setTextColor(themeColor(android.R.attr.textColorSecondary,
+            ContextCompat.getColor(this, R.color.general_gray_text_color)));
+        int top = getResources().getDimensionPixelSize(R.dimen.general_divider_padding);
+        header.setPadding(0, top, 0, top / 2);
+        return header;
+    }
+
+    private int themeColor(int attr, int fallback) {
+        TypedValue value = new TypedValue();
+        if (getTheme().resolveAttribute(attr, value, true) && value.resourceId != 0) {
+            return ContextCompat.getColor(this, value.resourceId);
+        }
+        return fallback;
+    }
+
+    // ---- 筛选 / 标签管理 ----
+
+    /**
+     * 工具栏上的「按标签筛选」：图标在放大镜与溢出三点之间，点它在图标正下方弹勾选列表。
+     * 菜单项配了 app:actionLayout —— 默认 ActionBar 不暴露菜单项自己的 View，而弹窗要锚在点击
+     * 位置，只能自己造一个 View 当锚点；代价是这个 item 的点击也由 action view 自己接管
+     * （onOptionsItemSelected 收不到它）。
+     */
+    private void configTagFilterAction(MenuItem item) {
+        if (item == null) return;
+        final View anchor = MenuItemCompat.getActionView(item);
+        if (anchor == null) return;
+        anchor.setOnClickListener(v -> showTagFilterPopup(anchor));
+    }
+
+    /**
+     * 弹窗里勾一个立刻筛一次，没有确定按钮 —— 与顶部筛选条点掉 chip 是同一条链路
+     * （setFilterSelection → 重查 → requery → 筛选条自动重画）。
+     */
+    private void showTagFilterPopup(View anchor) {
+        TagFilterPopup.show(this, anchor,
+            mRepoListAdapter::getTagFilterOptions,
+            mRepoListAdapter.getFilterTagIds(),
+            // 「无标签」与具体标签在「全部满足」下无解，直接互斥掉，别让用户撞空结果；
+            // 「任一满足」下两者是合法并集，不互斥。
+            mRepoListAdapter.isMatchAll(),
+            mRepoListAdapter::setFilterSelection);
+    }
+
+    private void showManageTagsDialog() {
+        List<Tag> tags = mRepoListAdapter.getAssignableTags();
         List<String> options = new ArrayList<>();
         options.add(getString(R.string.label_create));
-        for (RepoGroup group : groups) {
-            options.add(group.getName());
+        for (Tag tag : tags) {
+            options.add(tag.getName() + " (" + tag.getRepoCount() + ")");
         }
 
         onOptionDialogClicked[] listeners = new onOptionDialogClicked[options.size()];
-        listeners[0] = () -> showNewGroupDialog();
-        for (int i = 0; i < groups.size(); i++) {
-            final RepoGroup group = groups.get(i);
-            listeners[i + 1] = () -> showGroupActionsDialog(group);
+        listeners[0] = this::showNewTagDialog;
+        for (int i = 0; i < tags.size(); i++) {
+            final Tag tag = tags.get(i);
+            listeners[i + 1] = () -> showTagActionsDialog(tag);
         }
 
-        showOptionsDialog(R.string.dialog_manage_groups_title,
+        showOptionsDialog(R.string.dialog_manage_tags_title,
             options.toArray(new String[0]), listeners);
     }
 
-    private void showNewGroupDialog() {
-        showEditTextDialog(R.string.dialog_new_group_title,
-            R.string.dialog_new_group_hint, R.string.label_create, name -> {
-                if (!name.trim().isEmpty()) {
-                    RepoDbManager.createGroup(name.trim());
-                }
-            });
+    private void showNewTagDialog() {
+        showEditTextDialog(R.string.dialog_new_tag_title,
+            R.string.dialog_new_tag_hint, R.string.label_create,
+            name -> RepoDbManager.createTagIfAbsent(name));
     }
 
-    private void showGroupActionsDialog(final RepoGroup group) {
+    private void showTagActionsDialog(final Tag tag) {
         String[] options = {
             getString(R.string.label_rename),
             getString(R.string.label_delete)
         };
         onOptionDialogClicked[] listeners = new onOptionDialogClicked[]{
-            () -> showRenameGroupDialog(group),
-            () -> showDeleteGroupDialog(group)
+            () -> showRenameTagDialog(tag),
+            () -> showDeleteTagDialog(tag)
         };
         showOptionsDialog(R.string.dialog_choose_option, options, listeners);
     }
 
-    private void showRenameGroupDialog(final RepoGroup group) {
-        showEditTextDialog(R.string.dialog_rename_group_title,
-            R.string.dialog_new_group_hint, R.string.label_rename, name -> {
-                if (!name.trim().isEmpty()) {
-                    RepoDbManager.updateGroup(group.getId(), name.trim());
+    private void showRenameTagDialog(final Tag tag) {
+        showEditTextDialog(R.string.dialog_rename_tag_title,
+            R.string.dialog_new_tag_hint, R.string.label_rename, name -> {
+                if (!RepoDbManager.renameTag(tag.getId(), name)) {
+                    // UNIQUE 冲突：库里已有同名标签，改名被拒
+                    showToastMessage(R.string.error_rename_tag_exists);
                 }
             });
     }
 
-    private void showDeleteGroupDialog(final RepoGroup group) {
-        showMessageDialog(R.string.dialog_delete_group_title,
-            getString(R.string.dialog_delete_group_msg), R.string.label_delete,
-            (dialogInterface, i) -> RepoDbManager.deleteGroup(group.getId()));
+    private void showDeleteTagDialog(final Tag tag) {
+        showMessageDialog(R.string.dialog_delete_tag_title,
+            getString(R.string.dialog_delete_tag_msg), R.string.label_delete,
+            (dialogInterface, i) -> RepoDbManager.deleteTag(tag.getId()));
     }
 
     public void configSearchAction(MenuItem searchItem) {

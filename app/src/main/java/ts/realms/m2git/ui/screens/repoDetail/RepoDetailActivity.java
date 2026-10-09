@@ -23,11 +23,17 @@ import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentPagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import ts.realms.m2git.R;
 import ts.realms.m2git.core.command.MAsyncTask;
 import ts.realms.m2git.core.command.RepoOperationDelegate;
 import ts.realms.m2git.core.models.Repo;
+import ts.realms.m2git.core.models.Tag;
+import ts.realms.m2git.local.database.RepoDbManager;
 import ts.realms.m2git.ui.components.adapters.RepoOperationsAdapter;
+import ts.realms.m2git.ui.components.dialogs.TagPickerDialog;
 import ts.realms.m2git.ui.components.fragments.BranchChooserActivity;
 import ts.realms.m2git.ui.components.fragments.FilesFragment;
 import ts.realms.m2git.ui.components.fragments.StatusFragment;
@@ -286,8 +292,30 @@ public class RepoDetailActivity extends BaseCompatActivity {
                 mDrawerLayout.openDrawer(mRightDrawer);
             }
             return true;
+        } else if (item.getItemId() == R.id.action_edit_tags) {
+            showEditTagsDialog();
+            return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * 详情页的标签编辑。与列表页长按共用同一个面板（{@link TagPickerDialog}），
+     * 差别只在入口：这里一次只针对当前仓库，写库后由 RepoDbManager 广播，列表页回得去重查。
+     */
+    private void showEditTagsDialog() {
+        List<Tag> tags = Tag.getTagList(RepoDbManager.queryAllTags());
+        List<String> current = RepoDbManager.queryRepoTagMap().get((long) mRepo.getID());
+        // 现查而不是用 mRepo.getTagNames()：从快捷方式进来时仓库是按 id 从库里读的，没带标签
+        if (current == null) current = new ArrayList<>();
+        TagPickerDialog.show(this, R.string.dialog_edit_tags_title,
+            () -> Tag.getTagList(RepoDbManager.queryAllTags()),
+            Tag.idsOfNames(tags, current),
+            true,   // 允许就地新建
+            false,  // 不需要命中数
+            false,  // 编辑场景没有「无标签」伪标签，互斥不参与
+            tagIds -> RepoDbManager.setRepoTags(mRepo.getID(),
+                Tag.namesOfIds(Tag.getTagList(RepoDbManager.queryAllTags()), tagIds)));
     }
 
     public void closeOperationDrawer() {

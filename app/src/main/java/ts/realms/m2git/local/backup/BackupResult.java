@@ -24,6 +24,10 @@ public class BackupResult {
     public final List<ItemResult> repoResults = new ArrayList<>();
     public final List<ItemResult> credentialResults = new ArrayList<>();
     public boolean prefsImported = false;
+    /** 注册表里成功落地（新建或按同名复用）的标签数。 */
+    public int tagsRegistered = 0;
+    /** 至少并上一个备份标签的仓库行数（合并，不是覆盖）。 */
+    public int reposTagged = 0;
 
     public void addRepoResult(String name, Status status, String reason) {
         repoResults.add(new ItemResult(name, status, reason));
@@ -59,8 +63,10 @@ public class BackupResult {
 
     public String getSummary() {
         return String.format(
-            "Repos: %d success, %d skipped, %d failed | Credentials: %d success, %d skipped, %d failed | Prefs: %s",
+            "Repos: %d success, %d skipped, %d failed | Tags: %d registered, %d repos tagged | "
+                + "Credentials: %d success, %d skipped, %d failed | Prefs: %s",
             getRepoSuccessCount(), getRepoSkippedCount(), getRepoFailedCount(),
+            tagsRegistered, reposTagged,
             getCredentialSuccessCount(), getCredentialSkippedCount(), getCredentialFailedCount(),
             prefsImported ? "imported" : "not imported"
         );
