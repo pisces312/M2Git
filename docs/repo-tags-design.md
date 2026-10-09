@@ -114,7 +114,7 @@ UI 触点（都是单屏，不再有下钻）：
 要点：
 
 1. **身份用 name，不用 id**。跨设备 `_id` 必然不同。`tags` 数组是注册表（带 `sort_order`），每个 repo 只列自己标签的**名字**；导入用 `createTagIfAbsent` 解析成本地 id。名字比较用与库一致的 trim + 大小写敏感，别在导入路径上偷偷做归一。
-2. **顺带修掉现存丢失**：`time_added` 与 `sort_order` 进导出。`group_id` 不再导出（分组概念已废）。
+2. **顺带修掉现存丢失**：`time_added` 进导出。`group_id` 与 `sort_order` 都不导出 —— 分组概念已废，而 `sort_order` 在本方案里没有任何写入点（手动拖拽排序没做），导出一个恒为 NULL 的列只会给备份添噪声。
 3. **「仓库已存在」不能整条跳过**。当前 :172-176 命中同 `local_path` 就 `SKIPPED`，标签会跟着丢。改成：已存在 ⇒ 仍然合并标签与 `time_added`（`INSERT OR IGNORE`，幂等、不重复插行），行状态报 `SKIPPED`、理由 `"exists, tags merged"`；新建 ⇒ `createRepo` 后 `setRepoTags`。
 4. **还原必须显式覆盖 `time_added`**。v3 之后 `createRepo` 固定写 `System.currentTimeMillis()`，导入完要 `updateRepo` 回写备份值，否则「按导入时间排序」在还原后完全失真。这是「唯一写入点」设计的必然例外。
 5. **兼容性**：v1 文件没有 `tags`/`time_added`，现有 `optJSONArray`/`optLong` 空值路径已覆盖 ⇒ 直接可用（标签为空、时间取还原当天）。v2 文件被旧版 app 打开时未知键被 `opt*` 忽略 ⇒ 不崩，只丢标签。读侧不需要版本分支，但要加 `version >= 2` 注释说明为什么不需要。
