@@ -301,7 +301,8 @@ public class RepoDetailActivity extends BaseCompatActivity {
 
     /**
      * 详情页的标签编辑。与列表页长按共用同一个面板（{@link TagPickerDialog}），
-     * 差别只在入口：这里一次只针对当前仓库，写库后由 RepoDbManager 广播，列表页回得去重查。
+     * 差别只在入口：这里一次只针对当前仓库。写库后由 RepoDbManager 广播，列表页只重绘
+     * 对应那一行——仓库的集合与顺序都没变，没必要整表重算，滚动位置也就不会动。
      */
     private void showEditTagsDialog() {
         List<Tag> tags = Tag.getTagList(RepoDbManager.queryAllTags());

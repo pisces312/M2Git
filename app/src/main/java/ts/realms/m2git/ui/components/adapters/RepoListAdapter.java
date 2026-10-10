@@ -21,6 +21,7 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -237,6 +238,13 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
     }
 
     private void requery() {
+        // 整表重算前先记住滚动锚点：clear() 会让 ListView 看到一次空数据集，
+        // 挂过 emptyView 的 ListView 会被打成 GONE（子 View 全部丢弃、firstVisiblePosition 归零），
+        // 数据恢复后只能从顶部重新布局。这里自己按「首个可见项的仓库 id + 偏移」复位。
+        ListView anchorList = mActivity.findViewById(R.id.repoList);
+        final long anchorRepoId = anchorIdAt(anchorList);
+        final int anchorTop = anchorTopOffset(anchorList);
+
         Cursor cursor = RepoDbManager.queryAllRepo();
         List<Repo> repos = cursor == null ? new ArrayList<>() : Repo.getRepoList(cursor);
         if (cursor != null) cursor.close();
@@ -255,12 +263,52 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
             : applyTagFilter(repos);
         Collections.sort(visible, repoComparator());
 
+        // 更新数据。不用 notifyDataSetChanged()：它会引发 AbsListView 的自动同步，而那个
+        // 同步锚点优先取「上次点过的那一行」（不是首个可见行），末次布局会落到相邻行上。
+        // setAdapter 内部会 resetList()，把这套残留状态（含那个锚点）一并清干净，
+        // 位置由下面的 restoreAnchor 显式决定。
+        // setNotifyOnChange(false) 是必须的：clear()/addAll() 各自会发一次通知，中间那次
+        // 「空数据集」正好把 emptyView 机制触发起来，于是又回到被打成 GONE 的老问题上。
+        setNotifyOnChange(false);
         clear();
         addAll(visible);
-        notifyDataSetChanged();
+        if (anchorList != null) {
+            anchorList.setAdapter(this);
+        } else {
+            notifyDataSetChanged();
+        }
+        restoreAnchor(anchorList, anchorRepoId, anchorTop);
         if (mOnListRefreshed != null) {
             mOnListRefreshed.run();
         }
+    }
+
+    /** 首个可见项对应的仓库 id：重算后按「行」而不是「下标」复位，内容重排也能对上同一行。 */
+    private long anchorIdAt(ListView list) {
+        if (list == null) return RepoDbManager.NO_REPO;
+        int position = list.getFirstVisiblePosition();
+        if (position < 0 || position >= getCount()) return RepoDbManager.NO_REPO;
+        Repo repo = getItem(position);
+        return repo == null ? RepoDbManager.NO_REPO : repo.getID();
+    }
+
+    private static int anchorTopOffset(ListView list) {
+        if (list == null) return 0;
+        View first = list.getChildAt(0);
+        return first == null ? 0 : first.getTop() - list.getPaddingTop();
+    }
+
+    /**
+     * 全量重算后把滚动位置还原到原来那一行。
+     * <p>
+     * 配合上面的 setAdapter 使用：先让 ListView 回到干净状态，再显式指定首个可见行与其偏移，
+     * 这样完全不依赖 ListView 自己的同步推断。
+     */
+    private void restoreAnchor(ListView list, long repoId, int top) {
+        if (list == null || repoId == RepoDbManager.NO_REPO) return;
+        int position = indexOfRepoId(repoId);
+        if (position < 0) return;   // 锚点那一行被筛掉了，落回顶部才是合理的
+        list.setSelectionFromTop(position, top);
     }
 
     /**
@@ -275,15 +323,20 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         if (q.isEmpty()) return repos;
         List<Repo> hit = new ArrayList<>();
         for (Repo repo : repos) {
-            if (matches(repo.getDisplayName(), q)
-                || matches(repo.getLocalPath(), q)
-                || matches(repo.getRemoteURL(), q)
-                || matches(repo.getLastCommitter(), q)
-                || matches(repo.getLastCommitMsg(), q)) {
+            if (matchesRepo(repo, q)) {
                 hit.add(repo);
             }
         }
         return hit;
+    }
+
+    /** 单条命中判定，与 {@link #isRowStillVisible} 共用，避免把筛选口径写两遍。 */
+    private static boolean matchesRepo(Repo repo, String q) {
+        return matches(repo.getDisplayName(), q)
+            || matches(repo.getLocalPath(), q)
+            || matches(repo.getRemoteURL(), q)
+            || matches(repo.getLastCommitter(), q)
+            || matches(repo.getLastCommitMsg(), q);
     }
 
     private static boolean matches(String value, String query) {
@@ -318,6 +371,18 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
 
     private List<Repo> applyTagFilter(List<Repo> repos) {
         if (mFilterTagIds.isEmpty()) return repos;
+        List<Repo> filtered = new ArrayList<>();
+        for (Repo repo : repos) {
+            if (matchesTagFilter(repo)) {
+                filtered.add(repo);
+            }
+        }
+        return filtered;
+    }
+
+    /** 单个仓库的标签命中判定，与 {@link #isRowStillVisible} 共用。 */
+    private boolean matchesTagFilter(Repo repo) {
+        if (mFilterTagIds.isEmpty()) return true;
         boolean wantUntagged = mFilterTagIds.contains(Tag.UNTAGGED_ID);
         List<String> wanted = new ArrayList<>();
         for (Tag tag : mTagRegistry) {
@@ -325,23 +390,14 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
                 wanted.add(tag.getName());
             }
         }
-        List<Repo> filtered = new ArrayList<>();
-        for (Repo repo : repos) {
-            List<String> have = repo.getTagNames();
-            boolean hit;
-            if (mMatchAll) {
-                // AND：每个选中条件都要满足。「无标签」和具体标签同时选中必然无解
-                // （既有标签又不带任何标签的仓库不存在），由筛选面板互斥掉，这里不再特殊处理。
-                hit = (!wantUntagged || have.isEmpty()) && containsAll(have, wanted);
-            } else {
-                // OR：任一条件命中即可，「无标签」同样是并集的一部分
-                hit = (wantUntagged && have.isEmpty()) || containsAny(have, wanted);
-            }
-            if (hit) {
-                filtered.add(repo);
-            }
+        List<String> have = repo.getTagNames();
+        if (mMatchAll) {
+            // AND：每个选中条件都要满足。「无标签」和具体标签同时选中必然无解
+            // （既有标签又不带任何标签的仓库不存在），由筛选面板互斥掉，这里不再特殊处理。
+            return (!wantUntagged || have.isEmpty()) && containsAll(have, wanted);
         }
-        return filtered;
+        // OR：任一条件命中即可，「无标签」同样是并集的一部分
+        return (wantUntagged && have.isEmpty()) || containsAny(have, wanted);
     }
 
     /** 空 wanted 视为满足：AND 下「没提要求」不该把仓库筛掉。 */
@@ -462,6 +518,64 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
     @Override
     public void notifyChanged() {
         mActivity.runOnUiThread(this::requery);
+    }
+
+    /**
+     * 标签字典或某个仓库的标签关联变了。标签不参与排序键，也不影响仓库的可见性
+     * （除非筛选态下这一行被筛掉），所以没必要重算整表 —— 只更新内存里的标签名并重绘那一行，
+     * 滚动位置天然不动。
+     */
+    @Override
+    public void notifyRepoTagsChanged(long repoId) {
+        mActivity.runOnUiThread(() -> refreshTagsOnly(repoId));
+    }
+
+    private void refreshTagsOnly(long repoId) {
+        mTagRegistry = loadTags();
+        if (repoId != RepoDbManager.NO_REPO) {
+            int index = indexOfRepoId(repoId);
+            Repo repo = index < 0 ? null : getItem(index);
+            if (repo != null) {
+                List<String> names = RepoDbManager.queryRepoTagMap().get(repoId);
+                repo.setTagNames(names == null ? new ArrayList<>() : names);
+                if (!isRowStillVisible(repo)) {
+                    // 编辑后不再命中当前筛选/搜索，这一行该消失 —— 可见集合变了，只能整表重算
+                    requery();
+                    return;
+                }
+                rebindRow(index, repo);
+            }
+        }
+        if (mOnListRefreshed != null) {
+            mOnListRefreshed.run();
+        }
+    }
+
+    /** 只重绘屏幕上那一行；已滚出屏幕的不用管，滚回来时 getView 会重新绑定。 */
+    private void rebindRow(int index, Repo repo) {
+        ListView list = mActivity.findViewById(R.id.repoList);
+        if (list == null) return;
+        int childIndex = index - list.getFirstVisiblePosition();
+        if (childIndex < 0 || childIndex >= list.getChildCount()) return;
+        bindView(list.getChildAt(childIndex), repo);
+    }
+
+    private int indexOfRepoId(long repoId) {
+        for (int i = 0; i < getCount(); i++) {
+            Repo repo = getItem(i);
+            if (repo != null && repo.getID() == repoId) return i;
+        }
+        return -1;
+    }
+
+    /** 该仓库是否仍满足当前的搜索/标签筛选；口径与 requery 的可见性计算保持一致。 */
+    private boolean isRowStillVisible(Repo repo) {
+        if (mQueryType == QUERY_TYPE_SEARCH) {
+            String q = mSearchQueryString == null
+                ? "" : mSearchQueryString.trim().toLowerCase(Locale.ROOT);
+            return q.isEmpty() || matchesRepo(repo, q);
+        }
+        return matchesTagFilter(repo);
     }
 
     @Override

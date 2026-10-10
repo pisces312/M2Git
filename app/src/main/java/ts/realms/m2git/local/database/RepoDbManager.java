@@ -25,6 +25,8 @@ import ts.realms.m2git.utils.BasicFunctions;
 public class RepoDbManager {
 
     private static final Map<String, Set<RepoDbObserver>> mObservers = new HashMap<>();
+    /** {@link #notifyRepoTagsChanged} 用：本次变化不涉及任何具体仓库，只动了标签字典本身。 */
+    public static final long NO_REPO = -1L;
     private static RepoDbManager mInstance;
     private final SQLiteDatabase mWritableDB;
     private final SQLiteDatabase mReadableDB;
@@ -76,6 +78,22 @@ public class RepoDbManager {
         if (set == null) return;
         for (RepoDbObserver observer : set) {
             observer.notifyChanged();
+        }
+    }
+
+    /**
+     * 标签字典或某个仓库的标签关联发生了变化。仓库行的集合与顺序都不受影响（标签不参与排序键），
+     * 所以观察者可以只重绘受影响的那一行 —— 整表重算必须过 ArrayAdapter.clear()，中间那次
+     * 「空数据集」通知会把绑了 emptyView 的 ListView 打成 GONE，滚动位置随之丢失。
+     *
+     * @param repoId 标签关联变化的仓库 id；{@link #NO_REPO} 表示只有标签字典变了，没有行需要重绘
+     */
+    public static void notifyRepoTagsChanged(long repoId) {
+        if (sNotificationsSuppressed) return;
+        Set<RepoDbObserver> set = mObservers.get(RepoContract.RepoEntry.TABLE_NAME);
+        if (set == null) return;
+        for (RepoDbObserver observer : set) {
+            observer.notifyRepoTagsChanged(repoId);
         }
     }
 
@@ -186,7 +204,8 @@ public class RepoDbManager {
     public static long createTagIfAbsent(String rawName) {
         long id = findOrCreateTagId(getInstance().mWritableDB, rawName);
         if (id >= 0) {
-            notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+            // 新标签还没挂到任何仓库上，没有行需要重绘，只是标签候选集变了
+            notifyRepoTagsChanged(NO_REPO);
         }
         return id;
     }
@@ -212,10 +231,29 @@ public class RepoDbManager {
     public static void deleteTag(long tagId) {
         String[] args = {String.valueOf(tagId)};
         SQLiteDatabase db = getInstance().mWritableDB;
+        // 删除前先看它挂在几个仓库上：0 关联（面板里就地新建后取消的回滚）没有任何行需要重绘，
+        // 不必为它拉一次全表重算
+        boolean attached = hasRepoTagRelation(db, tagId);
         db.delete(RepoContract.RepoTagEntry.TABLE_NAME,
             RepoContract.RepoTagEntry.COLUMN_TAG_ID + " = ?", args);
         db.delete(RepoContract.TagEntry.TABLE_NAME, RepoContract.TagEntry._ID + " = ?", args);
-        notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+        if (attached) {
+            notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+        } else {
+            notifyRepoTagsChanged(NO_REPO);
+        }
+    }
+
+    /** 该标签是否还挂在仓库上；调用方负责在删除关系行之前调用。 */
+    private static boolean hasRepoTagRelation(SQLiteDatabase db, long tagId) {
+        Cursor cursor = db.rawQuery("SELECT 1 FROM " + RepoContract.RepoTagEntry.TABLE_NAME
+                + " WHERE " + RepoContract.RepoTagEntry.COLUMN_TAG_ID + " = ? LIMIT 1",
+            new String[]{String.valueOf(tagId)});
+        try {
+            return cursor.moveToFirst();
+        } finally {
+            cursor.close();
+        }
     }
 
     /** 全量覆盖一个仓库的标签：清旧关系，再按名字复用/新建。 */
@@ -241,7 +279,8 @@ public class RepoDbManager {
             db.setTransactionSuccessful();
         } finally {
             db.endTransaction();
-            notifyObservers(RepoContract.RepoEntry.TABLE_NAME);
+            // 只动了这一个仓库的标签关联：仓库的集合与顺序都没变，列表只重绘那一行就够
+            notifyRepoTagsChanged(repoId);
         }
     }
 
@@ -503,6 +542,16 @@ public class RepoDbManager {
 
     public interface RepoDbObserver {
         void notifyChanged();
+
+        /**
+         * 标签字典或某个仓库的标签关联发生变化，仓库行的集合与顺序未变。
+         * 默认退化成全量刷新；列表可以覆写它把重绘收敛到受影响的那一行。
+         *
+         * @param repoId 变化的仓库 id；{@link #NO_REPO} 表示没有行需要重绘
+         */
+        default void notifyRepoTagsChanged(long repoId) {
+            notifyChanged();
+        }
     }
 
 }
