@@ -52,12 +52,13 @@ sed 's/></>\n</g' wd.xml | grep -oE 'text="[^"]+"[^>]*bounds="\[[0-9]+,[0-9]+\]\
 ```
 
 - 用 dump 里的 bounds 算中心点再 tap，**不要背坐标**（布局会变）。
+- 解析 dump 要**按节点切分再逐行 grep**，不要跨节点配对属性（`paste - -` 之类）——Android 各版本属性顺序会变，跨节点配对会串行，表现为「输出的 text 与 bounds 对不上」。属性多或行数多时写个几行的 python 直接遍历 `<node ...>` 取 `text`/`resource-id`/`bounds`/`checked` 再筛，比拼 grep 管道省事且不会错。
 - 被动检查视图（不触发任何 UI 动作）：`adb shell dumpsys activity top | grep <关键字>`，能看到完整视图树和每个 view 的尺寸/位置（如排查「某元素消失」类 bug 首选）。
 - 系统原生 UI（弹窗、输入法）的 resource-id 是 `android:id/...`，app 内是 `ts.realms.m2git[.debug]:id/...`。
 
 ## 4. 必踩的坑
 
-1. **Git Bash 路径改写**：adb 参数里的 `/sdcard/...` 会被 MSYS 改写成 `D:/dev/git/sdcard/...`，导致命令静默失败或作用到错误路径。凡是以 `/` 开头的设备路径参数，**必须加 `MSYS_NO_PATHCONV=1` 前缀**；本机 host 侧文件参数反过来要给 Windows 路径（`D:/Temp/x.db`，给 `/tmp/x.db` 会 `cannot stat`）。
+1. **Git Bash 路径改写**：adb 参数里的 `/sdcard/...` 会被 MSYS 改写成 `D:/dev/git/sdcard/...`，导致命令静默失败或作用到错误路径。凡是以 `/` 开头的设备路径参数，**必须加 `MSYS_NO_PATHCONV=1` 前缀**；本机 host 侧文件参数反过来要给 Windows 路径（`D:/Temp/x.db`，给 `/tmp/x.db` 会 `cannot stat`）。**一条命令里只要还有任意一个没保护住的操作数就会中招**——实测 `adb shell uiautomator dump /sdcard/x.xml`（未保护）会把 xml dump 到设备上的 `D:/dev/git/sdcard/x.xml`，而同一条里的 `cat /sdcard/x.xml` 加了引号反而没事，很容易只改一半。稳妥做法是会话/脚本开头 `export MSYS_NO_PATHCONV=1` 一次，别逐条加前缀。
 2. **中文拼音输入法**：模拟器默认 Gboard 拼音模式，`input text` 输入的 ASCII 会被 IME 拼音组合劫持转成中文（实测：输入 `/sdcard/xxx` 变成「／打他／...」）。**不要往输入框打路径/URL**；改用免输入方案（Init Local 勾选 + 短名、或预先放好文件、或直接改数据库，见 §5）。要打 ASCII（如备份密码）时：`pm disable-user --user 0 com.google.android.inputmethod.latin`，测完 `pm enable` 并把 `settings put secure default_input_method` 改回 `.../com.android.inputmethod.latin.LatinIME`。
 3. **长按注入是可行的**：`MSYS_NO_PATHCONV=1 adb -s <serial> shell input swipe X Y X Y 1500`（起终点同坐标、时长 ≥1200ms）能触发 ListView 的 `onItemLongClick`，模拟器与真机都验过。这份 skill 以前写着「adb 注入不了长按、判定为注入侧限制」—— **那是错的**，真实原因见下条；把「工具驱动不了」当成「被测功能有问题」会掩盖真 bug，判定之前先用日志证明。
 4. **ListView 条目「点了没反应」的头号原因 = 行里有可聚焦后代**：`AbsListView.onTouchEvent` 的 ACTION_DOWN 只在 `!child.hasFocusable()` 时给这一行做 press 记账，于是 `onItemClick` 与 `onItemLongClick` **一起**失效。`HorizontalScrollView`/`ScrollView` 的构造链是 `super(context, attrs)`（XML 属性在此应用）→ `initScrollView()` → `setFocusableInTouchMode(true)`，**布局里写 `android:focusable="false"` / `focusableInTouchMode="false"` 都会被覆盖**，只能在代码里关（本项目的位置：`RepoListAdapter.newView`）。定位套路：给回调加一行临时 `Log.e("TAPDBG", …)` 重建装机 —— 有日志 = 业务分支问题，没日志 = 触摸没进 press 记账，先查 focusable / 遮挡 / adapter 状态，别猜业务代码。
@@ -67,11 +68,13 @@ sed 's/></>\n</g' wd.xml | grep -oE 'text="[^"]+"[^>]*bounds="\[[0-9]+,[0-9]+\]\
 8. **截图坐标 ≠ tap 坐标**：`screencap` 拉下来的 PNG 是缩放显示的（1080 宽屏显示成 ~485，因子 ≈2.23），**`input tap` 只认真实坐标**。最可靠的坐标来源是 `dumpsys activity top` 的视图树 bounds（全部真实坐标）；验证「工具栏图标顺序/位置」这类问题直接 grep `ActionMenuItemView` 的 bounds，比按截图量尺寸准。
 9. **uiautomator dump 会给陈旧 hierarchy**：窗口已切换（甚至 activity 已重建）后 dump 仍可能返回上一个窗口的树（表现为「截图与 dump 内容对不上」）。此时以 `dumpsys activity top` / `dumpsys window windows` 为准，或先 `adb reboot`。
 10. **"Process system isn't responding" 是 system_server ANR，不是 app ANR**：伴随 systemui 长时间狂转 CPU + 内存耗尽（2GB AVD 常见），app 本身可能没问题。`adb reboot` 恢复，别去查 app 代码。
-11. **`pm disable-user` IME 的副作用（接第 2 条）**：系统会把 `default_input_method` 顶到下一个可用 IME（如 TTS voice IME）；`pm enable` 恢复包**不会**自动切回，必须再 `settings put secure default_input_method com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME`。
+11. **`pm disable-user` IME 的副作用（接第 2 条）**：系统会把 `default_input_method` 顶到下一个可用 IME（如 TTS voice IME）；`pm enable` 恢复包**不会**自动切回，必须再 `settings put secure default_input_method com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME`。恢复建议三件套：`pm enable <输入法包>` + `ime enable <voiceIME 组件>` + `settings put secure default_input_method <latin 组件>`，恢复后 `enabled_input_methods` 应是 `latin:voiceIME` 两个。
+12. **非 external 仓库的 `local_path` 存的是「裸目录名」，不是绝对路径**：`Repo.getDir()` 拿 `preferenceHelper.getRepoRoot()`（偏好为空时回退 `<getExternalFilesDir>/repo`）再拼上它，所以真身是 `/storage/emulated/0/Android/data/<pkg>/files/repo/<name>`；`getDisplayName()` 对非 external 也**直接返回这个裸名**。手工 insert 时写成绝对路径会出现「行占位但标题空白」的怪状（UI 上占一格、dump 里没有 title 文本），排查时容易误判成渲染 bug。
+13. **造一个「点得进详情页」的仓库**（列表里点 external 仓库只会弹 "Error occurred"，测不了详情页）：host 端 `git init` + 两次 commit 造真仓库 → `adb push` 到 `/sdcard/...` → `adb shell cp -r` 进上面的 `<getExternalFilesDir>/repo/<name>` → DB 里 `local_path` 只写目录名、`remote_url` 随意。App **内置 JGit**，设备上**不需要 git 二进制**（`which git` 为空也能正常打开）。另外 `MANAGE_EXTERNAL_STORAGE` 用 `appops set <pkg> MANAGE_EXTERNAL_STORAGE allow` 即可，不必走运行时授权弹窗。
 
 ## 5. 数据层（debug 包可直查直改）
 
-- 仓库注册在 SQLite：`databases/repo.db`，表 `repo`（local_path/remote_url/time_added/...，local_path 形如 `external:///storage/emulated/0/Download/xxx`）、`tag`、`repo_tag`（多对多）、`credentials`；`repo_group`/`group_id`/`sort_order` 是废弃列，留着但无人读写。
+- 仓库注册在 SQLite：`databases/repo.db`，表 `repo`（local_path/remote_url/time_added/...，local_path 形如 `external:///storage/emulated/0/Download/xxx`；非 external 的只存裸目录名，见 §4 第 12 条）、`tag`、`repo_tag`（多对多）、`credentials`；`repo_group`/`group_id`/`sort_order` 是废弃列，留着但无人读写。
 - **取库**：`MSYS_NO_PATHCONV=1 adb -s emulator-5554 exec-out run-as <pkg> cat databases/repo.db > x.db`。用 `shell cat >` 会被换行转换写坏（实测 53248 → 53257 字节，sqlite 报 malformed schema）。
 - **回写库**：先 `am force-stop`，push 到 `/data/local/tmp/`，再 `run-as <pkg> cp /data/local/tmp/x.db databases/repo.db` —— `run-as` 直接读 `/sdcard` 会被 SELinux 拒（`Permission denied`）。整库替换后 `run-as ... rm -f databases/repo.db-journal`，否则残留 journal 会被回放到新库上。
 - 改库造数据后，`pragma user_version` 记下版本，并留一份改前快照；收尾时 push 快照 + 删掉 shared_prefs 里新增的键 + 删 `/sdcard` 上的产物 + 冷启动，让 `onUpgrade` 再跑一遍当作最终校验。
@@ -82,4 +85,4 @@ sed 's/></>\n</g' wd.xml | grep -oE 'text="[^"]+"[^>]*bounds="\[[0-9]+,[0-9]+\]\
 
 - **装新构建并冒烟**：install -r → 重授权限（§1）→ 冷启动（`am force-stop` 后 am start）→ screencap 看首屏。
 - **验证某视图存在/尺寸**（如「标签条消失」类 bug）：`dumpsys activity top | grep pager_title_strip`，看 bounds 是 `0,0-0,0` 还是正常尺寸。
-- **复现需要仓库数据的场景**：优先 debug 包（可 run-as 改 DB 注册路径），或走 Clone 对话框 + Init Local。
+- **复现需要仓库数据的场景**：优先 debug 包（可 run-as 改 DB 注册路径），或走 Clone 对话框 + Init Local。**要测详情页就按 §4 第 13 条造一个真本地仓库**（列表里的 external 仓库点进去只弹 "Error occurred"）。数据要造够量（列表滚动类问题 ~25 条起步），并留改前快照以便收尾还原。
