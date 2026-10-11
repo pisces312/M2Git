@@ -20,6 +20,7 @@ import ts.realms.m2git.R;
 import ts.realms.m2git.core.models.Repo;
 import ts.realms.m2git.ui.components.adapters.FilesListAdapter;
 import ts.realms.m2git.ui.components.dialogs.RepoFileOperationDialog;
+import ts.realms.m2git.ui.components.dialogs.SortOptionsDialog;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity.OnBackClickListener;
 import ts.realms.m2git.ui.screens.repoDetail.RepoDetailFragment;
@@ -183,6 +184,21 @@ public class FilesFragment extends RepoDetailFragment {
     @Override
     public void reset() {
         resetCurrentDir();
+    }
+
+    /**
+     * 右上角排序图标调它。确定之后只重排**当前目录**（走 {@link #setCurrentDir(File)}）而不调
+     * {@link #reset()} —— 后者会退回仓库根，用户在子目录里换个排序凭被弹回顶层是不可接受的。
+     * 排序键与目录优先开关都存进 repo_view_state，见 {@link FilesListAdapter#setSortSettings}。
+     */
+    public void showSortDialog() {
+        if (mFilesListAdapter == null) return;
+        SortOptionsDialog.showWithDirsFirst(getRawActivity(), R.string.dialog_sort_files_title,
+            new int[]{R.string.sort_key_name, R.string.sort_key_modified, R.string.sort_key_size},
+            mFilesListAdapter.getSortKey(), mFilesListAdapter.getSortDirection(),
+            mFilesListAdapter.isDirsFirst(),
+            (sortKey, sortDir, dirsFirst) ->
+                mFilesListAdapter.setSortSettings(sortKey, sortDir, dirsFirst));
     }
 
     public void newDir(String name) {

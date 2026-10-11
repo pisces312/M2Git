@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24.0"
+    android:viewportHeight="24.0">
+    <!--
+      Material「sort」：三条左对齐、长度递减的横线。工具栏图标一律纯白，与
+      ic_search / ic_action_filter_tags / ic_action_settings 同一规则（两个主题的
+      ActionBar 都是深色）。用 vector 而不是补一套 m~xxxhdpi 的 png：新增图标没有历史包袱。
+    -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M3,18h6v-2H3v2zM3,6v2h18V6H3zm0,7h12v-2H3v2z" />
+</vector>

@@ -119,6 +119,21 @@
     <string name="pref_key_repo_tag_match_all" translatable="false">repo_tag_match_all</string>
     <string name="pref_key_repo_filter_tags" translatable="false">repo_filter_tags</string>
     <string name="repo_view_state_file" translatable="false">repo_view_state</string>
+    <!--
+      文件列表排序（仓库详情 · 文件页）。面板与仓库列表共用 SortOptionsDialog，
+      所以 sort_section_key / sort_section_direction / sort_dir_* / sort_key_name 都复用，
+      这里只补新增项。pref 键不进 values-zh-rCN：它们是存储字面量。
+      曾经有过 sort_key_created（创建时间）：实测 Android 的 creationTime() 恒等于
+      lastModifiedTime()，等于「修改时间」的重复项，故换成大小。
+    -->
+    <string name="dialog_sort_files_title">Sort files</string>
+    <string name="sort_key_modified">Modified</string>
+    <string name="sort_key_size">Size</string>
+    <string name="sort_section_option">Options</string>
+    <string name="sort_dirs_first">Folders first</string>
+    <string name="pref_key_file_sort_key" translatable="false">file_sort_key</string>
+    <string name="pref_key_file_sort_direction" translatable="false">file_sort_direction</string>
+    <string name="pref_key_file_dirs_first" translatable="false">file_dirs_first</string>
     <string name="dialog_rename_repo_title">Rename Repository</string>
     <string name="dialog_rename_repo_hint">Repository Name</string>
     <string name="dialog_delete_repo_title">Delete Confirmation</string>

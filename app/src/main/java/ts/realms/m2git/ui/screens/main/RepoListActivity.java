@@ -7,20 +7,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.LinearLayout;
-import android.widget.RadioButton;
-import android.widget.RadioGroup;
-import android.widget.ScrollView;
 import android.widget.SearchView;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.core.content.ContextCompat;
 import androidx.core.view.MenuItemCompat;
 import androidx.databinding.DataBindingUtil;
 import androidx.lifecycle.ViewModelProvider;
@@ -45,6 +38,7 @@ import ts.realms.m2git.local.preference.PreferenceHelper;
 import ts.realms.m2git.ui.components.adapters.RepoListAdapter;
 import ts.realms.m2git.ui.components.dialogs.DummyDialogListener;
 import ts.realms.m2git.ui.components.dialogs.ImportLocalRepoDialog;
+import ts.realms.m2git.ui.components.dialogs.SortOptionsDialog;
 import ts.realms.m2git.ui.components.dialogs.TagFilterPopup;
 import ts.realms.m2git.ui.components.fragments.ExploreFileActivity;
 import ts.realms.m2git.ui.components.fragments.ImportRepositoryActivity;
@@ -220,94 +214,17 @@ public class RepoListActivity extends BaseCompatActivity {
     // ---- 排序 ----
 
     /**
-     * 排序依据与方向分开选，而不是列成「名称升序 / 名称降序 / …」的组合项：
-     * 组合式列表每加一种排序键就要多两个选项，而偏好里存组合索引意味着选项平移会改用户的设置。
+     * 面板本身抽到了 {@link SortOptionsDialog}：文件列表要用同一个面板，只是多一节「目录优先」
+     * 和一行关于「创建时间」的说明。这里传的选项顺序就是 RepoListAdapter.SORT_KEY_* /
+     * SORT_DIR_* 的常量顺序 —— 面板按**下标**回传，加排序键不会改掉老用户的设置。
      */
     private void showSortDialog() {
-        final int currentKey = mRepoListAdapter.getSortKey();
-        final int currentDir = mRepoListAdapter.getSortDirection();
-        final RadioButton[] keyRadios = {
-            makeRadio(R.string.sort_key_name, currentKey == RepoListAdapter.SORT_KEY_NAME),
-            makeRadio(R.string.sort_key_last_commit,
-                currentKey == RepoListAdapter.SORT_KEY_LAST_COMMIT),
-            makeRadio(R.string.sort_key_time_added,
-                currentKey == RepoListAdapter.SORT_KEY_TIME_ADDED)
-        };
-        final RadioButton[] dirRadios = {
-            makeRadio(R.string.sort_dir_asc, currentDir == RepoListAdapter.SORT_DIR_ASC),
-            makeRadio(R.string.sort_dir_desc, currentDir == RepoListAdapter.SORT_DIR_DESC)
-        };
-        // 选项顺序即 SORT_KEY_* / SORT_DIR_* 常量顺序，取中时用下标回推，不碰 R.id 常量（AGP9 下非 final）
-        final RadioGroup keyGroup = new RadioGroup(this);
-        final RadioGroup dirGroup = new RadioGroup(this);
-        fillRadioGroup(keyGroup, keyRadios);
-        fillRadioGroup(dirGroup, dirRadios);
-
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        int margin = getResources().getDimensionPixelSize(R.dimen.general_padding_larger);
-        content.setPadding(margin, margin / 2, margin, 0);
-        content.addView(sectionHeader(R.string.sort_section_key));
-        content.addView(keyGroup);
-        content.addView(sectionHeader(R.string.sort_section_direction));
-        content.addView(dirGroup);
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(content);
-
-        new AlertDialog.Builder(this)
-            .setTitle(R.string.dialog_sort_title)
-            .setView(scroll)
-            .setPositiveButton(R.string.label_ok, (dialog, which) -> mRepoListAdapter.setSortSettings(
-                checkedIndexOf(keyGroup, keyRadios, currentKey),
-                checkedIndexOf(dirGroup, dirRadios, currentDir)))
-            .setNegativeButton(R.string.label_cancel, new DummyDialogListener())
-            .show();
-    }
-
-    private RadioButton makeRadio(int labelRes, boolean checked) {
-        RadioButton radio = new RadioButton(this);
-        radio.setText(labelRes);
-        radio.setChecked(checked);
-        radio.setId(View.generateViewId());
-        int pad = radio.getPaddingTop();
-        radio.setPadding(pad, pad, pad, pad);
-        return radio;
-    }
-
-    private void fillRadioGroup(RadioGroup group, RadioButton[] radios) {
-        group.setOrientation(RadioGroup.VERTICAL);
-        for (RadioButton radio : radios) {
-            group.addView(radio);
-        }
-    }
-
-    /** 取选中项下标；异常状态（没有选中）回退到原值，而不是把排序悄悄改成第一项。 */
-    private static int checkedIndexOf(RadioGroup group, RadioButton[] radios, int fallback) {
-        int checkedId = group.getCheckedRadioButtonId();
-        for (int i = 0; i < radios.length; i++) {
-            if (radios[i].getId() == checkedId) return i;
-        }
-        return fallback;
-    }
-
-    private TextView sectionHeader(int labelRes) {
-        TextView header = new TextView(this);
-        header.setText(labelRes);
-        header.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        header.setTextColor(themeColor(android.R.attr.textColorSecondary,
-            ContextCompat.getColor(this, R.color.general_gray_text_color)));
-        int top = getResources().getDimensionPixelSize(R.dimen.general_divider_padding);
-        header.setPadding(0, top, 0, top / 2);
-        return header;
-    }
-
-    private int themeColor(int attr, int fallback) {
-        TypedValue value = new TypedValue();
-        if (getTheme().resolveAttribute(attr, value, true) && value.resourceId != 0) {
-            return ContextCompat.getColor(this, value.resourceId);
-        }
-        return fallback;
+        SortOptionsDialog.show(this, R.string.dialog_sort_title,
+            new int[]{R.string.sort_key_name, R.string.sort_key_last_commit,
+                R.string.sort_key_time_added},
+            mRepoListAdapter.getSortKey(), mRepoListAdapter.getSortDirection(),
+            // 仓库列表没有「目录优先」这一说，第三个参数直接忽略
+            (sortKey, sortDir, dirsFirst) -> mRepoListAdapter.setSortSettings(sortKey, sortDir));
     }
 
     // ---- 筛选 / 标签管理 ----

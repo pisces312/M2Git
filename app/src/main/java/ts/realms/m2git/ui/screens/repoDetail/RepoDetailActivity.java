@@ -60,6 +60,7 @@ public class RepoDetailActivity extends BaseCompatActivity {
     private Button mCommitNameButton;
     private ImageView mCommitType;
     private MenuItem mSearchItem;
+    private MenuItem mSortItem;
     private Repo mRepo;
     private View mPullProgressContainer;
     private ProgressBar mPullProgressBar;
@@ -235,6 +236,10 @@ public class RepoDetailActivity extends BaseCompatActivity {
             searchView.setIconifiedByDefault(true);
             searchView.setOnQueryTextListener(mTabItemPagerAdapter);
         }
+        // 排序只对文件页有意义。mSelectedTab 的初值就是 FILES_FRAGMENT_INDEX(0)，
+        // 所以首次 inflate 时不必额外读 pager.getCurrentItem()。
+        mSortItem = menu.findItem(R.id.action_sort_files);
+        mSortItem.setVisible(mSelectedTab == FILES_FRAGMENT_INDEX);
         return true;
     }
 
@@ -294,6 +299,11 @@ public class RepoDetailActivity extends BaseCompatActivity {
             return true;
         } else if (item.getItemId() == R.id.action_edit_tags) {
             showEditTagsDialog();
+            return true;
+        } else if (item.getItemId() == R.id.action_sort_files) {
+            if (mFilesFragment != null) {
+                mFilesFragment.showSortDialog();
+            }
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -424,6 +434,9 @@ public class RepoDetailActivity extends BaseCompatActivity {
             mSelectedTab = position;
             if (mSearchItem != null) {
                 mSearchItem.setVisible(position == COMMITS_FRAGMENT_INDEX);
+            }
+            if (mSortItem != null) {
+                mSortItem.setVisible(position == FILES_FRAGMENT_INDEX);
             }
         }
 

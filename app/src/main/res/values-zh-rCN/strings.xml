@@ -110,6 +110,13 @@
     <string name="sort_section_direction">方向</string>
     <string name="sort_dir_asc">升序</string>
     <string name="sort_dir_desc">降序</string>
+    <!-- 文件列表排序（仓库详情 · 文件页），面板与仓库列表共用，故小节/方向/名称文案复用。
+         原本的「创建时间」实测与「修改时间」恒等（Android 拿不到出生时间），已换成大小。 -->
+    <string name="dialog_sort_files_title">文件排序</string>
+    <string name="sort_key_modified">修改时间</string>
+    <string name="sort_key_size">大小</string>
+    <string name="sort_section_option">选项</string>
+    <string name="sort_dirs_first">目录优先</string>
     <string name="dialog_rename_repo_title">重命名仓库</string>
     <string name="dialog_rename_repo_hint">仓库名称</string>
     <string name="dialog_delete_repo_title">确认删除</string>

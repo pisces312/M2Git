@@ -1,5 +1,16 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
+    <!--
+      文件列表的排序入口。orderInCategory 给 0，比搜索（1）还小，所以它落在工具栏最左。
+      和搜索一样按 tab 控制可见性（RepoDetailActivity#onPageSelected）：只有文件页有排序可言，
+      提交页的顺序是提交历史、状态页是变更集，都不该被这个开关影响。
+    -->
+    <item
+        android:id="@+id/action_sort_files"
+        android:icon="@drawable/ic_action_sort"
+        android:orderInCategory="0"
+        android:title="@string/action_sort"
+        app:showAsAction="always" />
     <item
         android:id="@+id/action_search"
         android:icon="@drawable/ic_search"
