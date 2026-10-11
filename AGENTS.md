@@ -28,9 +28,9 @@
 
 ## Git 远程
 
+- `origin` = pisces312/M2Git（fork，主远程；`main` 跟踪它，日常提交推这里）
 - `upstream` = Zacharia2/M2Git（原仓库，同步用：`git fetch upstream` 后比对 `main..upstream/main`）
-- `github` = pisces312/M2Git（fork 主远程）
-- `origin` = 阿里云 codeup（备份）
+- 阿里云 codeup 备份远端已于 2026-10-11 删除（它原先占用 `origin` 名字，fork 远端 `github` 改名 `origin` 后不再存在），当前仓库只有上面两个远端。
 
 ## 签名
 
