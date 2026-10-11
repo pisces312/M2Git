@@ -36,16 +36,26 @@
 
 - debug 构建使用默认 debug 证书（`~/.android/debug.keystore`）+ **v3-only** 签名（app/build.gradle 中 `enableV1Signing false` / `enableV2Signing false` / `enableV3Signing true`）。minSdk 31 无需 v1/v2，v3-only 是业界常规做法。
 - 覆盖安装报签名不一致 = 设备上的包不是当前 debug.keystore 签的（根目录 May 之前的旧 debug APK 用的是另一把钥匙，勿用来覆盖安装）。解法：`adb uninstall ts.realms.m2git.debug` 后重装（会清 debug 应用数据）。
-- release 签名**一律用环境变量注入**：**代码与脚本不硬编码凭据**（keystore 路径/密码/别名全从环境读取，`build.sh` 只读环境变量、不做任何 fallback）。
+- release 签名**一律用环境变量注入**：**keystore 路径与密码不硬编码**（`KEY_STORE` / `KEY_STORE_PASSWORD` 缺失时 `build.sh` 直接报错退出，不做兜底）。脚本里剩下的 `:-` 默认值都不是密钥（`KEY_ALIAS` 缺省 `pisces312` 等，见下）。
   - `KEY_STORE` = keystore 路径。本机取值为 `D:\my-projects\my-backup\backup-settings\my-android-release.keystore` —— 此处仅作运维说明，**代码/脚本里不得出现该字面量**。
   - `KEY_STORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`，`KEY_PASSWORD` 缺省回退 `KEY_STORE_PASSWORD`
   - SDK 路径取 `ANDROID_HOME`（缺省 `D:\dev\android_sdk`）；构建前确认四项已设置。
   - release 产物：gradle 产 unsigned 包 → build.sh zipalign + apksigner 签名，成品在仓库根目录 `M2Git-v*-<abi>-signed.apk`。
 - **本仓库 release 证书 SHA-256**：`abadebd2fc9523628b5dacfa0fb40f652df0e161b71820c7a4b5a40653ee0b90`
-  —— 就是上面 `KEY_STORE` 指向的那把钥匙，自 v1.8.5 起统一（v1.8.5 / 1.8.6 / 1.8.7 / 1.8.8 指纹一致，可互相覆盖升级）。
-  结果恒为 **v3-only**（v1/v2 均 false，minSdk 31 无需 v1/v2），release 与 debug 一致。
+  —— 就是上面 `KEY_STORE` 指向的那把钥匙，自 v1.8.5 起统一（v1.8.5 / 1.8.6 / 1.8.7 / 1.8.8 / 1.8.9 指纹一致，可互相覆盖升级；
+  v1.8.9 覆盖安装 v1.8.8 已在真机实测通过，2026-10-11）。
   溯源方法（可复现）：`keytool -list -v -keystore "$KEY_STORE" -storepass "$KEY_STORE_PASSWORD"` 与
   `apksigner verify --print-certs <apk>` 两处指纹应逐字符相同。
+- **release 与 debug 的签名方案不同，别当成一回事**（2026-10-11 实测）：
+  - debug = **v3-only**（由 app/build.gradle 的三个 `enableV*Signing` 开关决定，见本节第一条）。判据：
+    `apksigner verify -v --min-sdk-version 23 <debug.apk>` 直接报 `Missing META-INF/MANIFEST.MF`，即真没写 v1。
+  - release = **v1 + v2 + v3 全都写了**。`build.sh` 调 apksigner 时不传 `--vN-signing-enabled`，走其默认（三者全开），
+    成品 zip 里有 `META-INF/PISCES31.SF` / `META-INF/PISCES31.RSA`。v1.8.8 与 v1.8.9 两个发布包实测都是这个结果。
+    要真做成 v3-only 得在 build.sh 的 sign 命令上显式加 `--v1-signing-enabled false --v2-signing-enabled false`（目前未做，
+    minSdk 31 下多写 v1/v2 无安全收益，只是与 debug 不一致）。
+  - **判读坑**：`apksigner verify -v <apk>` 不带 `--min-sdk-version` 时是按 APK 自身 minSdk 判「需不需要该方案」，
+    minSdk ≥ 24 时 v1/v2 恒显示 `false`，**不代表包里没写**。看真实状态要么 `verify -v --min-sdk-version 23 <apk>`，
+    要么直接查 zip 里的 `META-INF/*.SF`、`*.RSA`。
 - **上游 Zacharia2/MGit 用的是另一把钥匙**：`50d2034f42e06088d21623e7e2335d8de797f94e38ad5eb2b727d45cc6a40547`
   → 装过上游版的设备**必须先卸载**才能装本仓库包（签名不匹配无法覆盖），release notes 里必须写明。
   上游的 release 附件叫 `app-release.apk`（含着 4 个 ABI），本仓库只出 `arm64-v8a`。
