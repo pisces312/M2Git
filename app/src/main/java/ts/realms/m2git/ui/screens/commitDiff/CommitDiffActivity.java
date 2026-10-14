@@ -40,6 +40,8 @@ public class CommitDiffActivity extends BaseCompatActivity {
     public final static String OLD_COMMIT = "old commit";
     public final static String NEW_COMMIT = "new commit";
     public final static String SHOW_DESCRIPTION = "show_description";
+    /** 仓库相对路径；带它就只看这一个文件的 diff，不带就是整仓。 */
+    public final static String DIFF_PATH = "diff_path";
     private final static int REQUEST_SAVE_DIFF = 1;
     private static final String JS_INF = "CodeLoader";
     private static final String HTML_TMPL = "<!doctype html>"
@@ -54,6 +56,7 @@ public class CommitDiffActivity extends BaseCompatActivity {
     private ProgressBar mLoading;
     private String mOldCommit;
     private String mNewCommit;
+    private String mDiffPath;
     private boolean mShowDescription;
     private Repo mRepo;
     private RevCommit mCommit;
@@ -72,13 +75,20 @@ public class CommitDiffActivity extends BaseCompatActivity {
         mOldCommit = extras.getString(OLD_COMMIT);
         mNewCommit = extras.getString(NEW_COMMIT);
         mShowDescription = extras.getBoolean(SHOW_DESCRIPTION);
+        mDiffPath = extras.getString(DIFF_PATH);
         mRepo = (Repo) extras.getSerializable(Repo.TAG);
 
-        String title = Repo.getCommitDisplayName(mNewCommit);
-        if (mOldCommit != null)
-            title += " : " + Repo.getCommitDisplayName(mOldCommit);
+        if (mDiffPath != null) {
+            // 单文件模式标题只放文件名：整仓那套「新 : 旧」在这里是 dircache/filetree 两个
+            // 哨兵名，摆出来不如文件名有用（哪两侧的比较由状态页那一行的徽标决定）。
+            setTitle(getString(R.string.title_activity_file_diff, new File(mDiffPath).getName()));
+        } else {
+            String title = Repo.getCommitDisplayName(mNewCommit);
+            if (mOldCommit != null)
+                title += " : " + Repo.getCommitDisplayName(mOldCommit);
+            setTitle(getString(R.string.title_activity_commit_diff) + title);
+        }
 
-        setTitle(getString(R.string.title_activity_commit_diff) + title);
         loadFileContent();
     }
 
@@ -257,7 +267,7 @@ public class CommitDiffActivity extends BaseCompatActivity {
                     mLoading.setVisibility(View.GONE);
                     mDiffContent.loadUrl(CodeGuesser.wrapUrlScript("notifyEntriesReady();"));
                 }
-            }, mShowDescription);
+            }, mShowDescription, mDiffPath);
             diffTask.executeTask();
         }
 

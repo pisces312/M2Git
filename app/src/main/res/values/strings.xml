@@ -77,6 +77,7 @@
     <string name="title_activity_import_repository">Import Repository</string>
     <string name="title_activity_view_file">File: </string>
     <string name="title_activity_commit_diff">Diff:   </string>
+    <string name="title_activity_file_diff">File diff: %1$s</string>
     <string name="title_section1">Section 1</string>
     <string name="title_section2">Section 2</string>
     <string name="title_section3">Section 3</string>
@@ -84,6 +85,9 @@
     <string name="tab_file_label">File</string>
     <string name="tab_commits_label">Commits</string>
     <string name="tab_status_label">Status</string>
+
+    <!-- Status tab：下半部的变更文件列表 -->
+    <string name="status_changed_files_count">%1$d changed files</string>
 
     <!-- Dialog Msg -->
     <string name="dialog_choose_branch_title">Choose Branch</string>
@@ -134,6 +138,8 @@
     <string name="pref_key_file_sort_key" translatable="false">file_sort_key</string>
     <string name="pref_key_file_sort_direction" translatable="false">file_sort_direction</string>
     <string name="pref_key_file_dirs_first" translatable="false">file_dirs_first</string>
+    <!-- 状态页上下两栏的占比，视图态：和文件页排序同放 repo_view_state -->
+    <string name="pref_key_status_split_ratio" translatable="false">status_split_ratio</string>
     <string name="dialog_rename_repo_title">Rename Repository</string>
     <string name="dialog_rename_repo_hint">Repository Name</string>
     <string name="dialog_delete_repo_title">Delete Confirmation</string>
@@ -208,6 +214,7 @@
     <string name="feedback_subject">Feedback</string>
     <string name="cannot_delete_branch">cannot delete %s</string>
     <string name="cannot_delete_current_branch">cannot delete currently checked out branch %s</string>
+    <string name="toast_status_untracked_no_diff">Untracked files have no diff to show</string>
 
     <!-- Preferences -->
 

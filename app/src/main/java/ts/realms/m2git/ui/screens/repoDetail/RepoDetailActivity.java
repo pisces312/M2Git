@@ -408,7 +408,6 @@ public class RepoDetailActivity extends BaseCompatActivity {
                 case COMMITS_FRAGMENT_INDEX:
                     return mCommitsFragment;
                 case STATUS_FRAGMENT_INDEX:
-                    mStatusFragment.reset();
                     return mStatusFragment;
             }
             return mFilesFragment;
@@ -432,6 +431,12 @@ public class RepoDetailActivity extends BaseCompatActivity {
         @Override
         public void onPageSelected(int position) {
             mSelectedTab = position;
+            // 状态页是第 3 页，落在 offscreenPageLimit=1 之内：来回滑不会销毁重建它，
+            // 也不会走 onResume（实测，见 StatusFragment 注释），所以「回到这一页就刷新」
+            // 只能挂在这里。stage / unstage 之后切回来看到的就是新索引状态。
+            if (position == STATUS_FRAGMENT_INDEX) {
+                mStatusFragment.reset();
+            }
             if (mSearchItem != null) {
                 mSearchItem.setVisible(position == COMMITS_FRAGMENT_INDEX);
             }

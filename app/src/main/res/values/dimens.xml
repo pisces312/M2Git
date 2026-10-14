@@ -52,4 +52,9 @@
     <dimen name="repo_filter_chip_padding_vertical">4dp</dimen>
     <dimen name="repo_filter_text_size">13sp</dimen>
     <dimen name="repo_list_empty_text_size">15sp</dimen>
+
+    <!-- status: 上下两栏 + 变更文件列表 -->
+    <dimen name="status_split_handle_height">40dp</dimen>
+    <dimen name="status_files_header_text_size">14sp</dimen>
+    <dimen name="status_file_item_text_size">15sp</dimen>
 </resources>

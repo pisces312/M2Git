@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:minHeight="@dimen/general_min_height"
+    android:orientation="horizontal"
+    android:paddingLeft="@dimen/general_padding_larger"
+    android:paddingRight="@dimen/general_padding_larger">
+
+    <!-- 分组徽标：A/C/D/!/M/U/?，与上半部文本的七个分组一一对应 -->
+    <TextView
+        android:id="@+id/statusFileBadge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:minWidth="20dp"
+        android:text="@string/default_text"
+        android:textSize="@dimen/status_file_item_text_size"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/statusFilePath"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="@dimen/general_padding"
+        android:ellipsize="middle"
+        android:maxLines="1"
+        android:text="@string/default_text"
+        android:textSize="@dimen/status_file_item_text_size" />
+
+</LinearLayout>

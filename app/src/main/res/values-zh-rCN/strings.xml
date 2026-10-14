@@ -73,6 +73,7 @@
     <string name="title_activity_import_repository">导入仓库</string>
     <string name="title_activity_view_file">文件：</string>
     <string name="title_activity_commit_diff">比较差异：</string>
+    <string name="title_activity_file_diff">文件差异：%1$s</string>
     <string name="title_section1">第1部分</string>
     <string name="title_section2">第2部分</string>
     <string name="title_section3">第3部分</string>
@@ -80,6 +81,9 @@
     <string name="tab_file_label">文件</string>
     <string name="tab_commits_label">提交</string>
     <string name="tab_status_label">状态</string>
+
+    <!-- 状态页：下半部的变更文件列表 -->
+    <string name="status_changed_files_count">%1$d 个变更文件</string>
 
     <!-- Dialog Msg -->
     <string name="dialog_choose_branch_title">选择分支</string>
@@ -187,6 +191,7 @@
     <string name="feedback_subject">反馈</string>
     <string name="cannot_delete_branch">无法删除 %s</string>
     <string name="cannot_delete_current_branch">无法删除当前检出的分支 %s</string>
+    <string name="toast_status_untracked_no_diff">未跟踪文件没有可显示的差异</string>
 
     <!-- Preferences -->
 

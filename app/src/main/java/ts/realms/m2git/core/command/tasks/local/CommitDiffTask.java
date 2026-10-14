@@ -30,6 +30,7 @@ public class CommitDiffTask extends RepoOpTask implements MAsyncTask.AsyncTaskDo
     private final String mNewCommit;
     private final CommitDiffResult mCallback;
     private final boolean mShowDescription;
+    private final String mPathFilter;
     private List<DiffEntry> mDiffEntries;
     private List<String> mDiffStrings;
     private Iterable<RevCommit> mCommits;
@@ -38,11 +39,22 @@ public class CommitDiffTask extends RepoOpTask implements MAsyncTask.AsyncTaskDo
 
     public CommitDiffTask(Repo repo, String oldCommit, String newCommit,
                           CommitDiffResult callback, boolean showDescription) {
+        this(repo, oldCommit, newCommit, callback, showDescription, null);
+    }
+
+    /**
+     * @param pathFilter 仓库相对路径（JGit 的 '/' 分隔），只保留这一个文件的 diff；null = 全部。
+     *                   比完再筛，不改 scan 本身：两侧树 iterator 的构造和整仓 diff 完全一致，
+     *                   少一套「按路径取子树」的特殊分支，代价只是多扫一遍树。
+     */
+    public CommitDiffTask(Repo repo, String oldCommit, String newCommit,
+                          CommitDiffResult callback, boolean showDescription, String pathFilter) {
         super(repo, true);
         mOldCommit = oldCommit;
         mNewCommit = newCommit;
         mCallback = callback;
         mShowDescription = showDescription;
+        mPathFilter = pathFilter;
     }
 
     @Override
@@ -111,6 +123,9 @@ public class CommitDiffTask extends RepoOpTask implements MAsyncTask.AsyncTaskDo
 
             AbstractTreeIterator mNewCommitTreeIterator = getTreeIterator(repo, mNewCommit);
             mDiffEntries = mDiffFormatter.scan(mOldCommitTreeIterator, mNewCommitTreeIterator);
+            if (mPathFilter != null) {
+                mDiffEntries = filterByPath(mDiffEntries, mPathFilter);
+            }
 
             if (mShowDescription) {
                 ObjectId newCommitId = repo.resolve(mNewCommit);
@@ -127,6 +142,17 @@ public class CommitDiffTask extends RepoOpTask implements MAsyncTask.AsyncTaskDo
         } catch (StopTaskException ignored) {
         }
         return false;
+    }
+
+    /** old/new 两侧都比：重命名时路径只出现在其中一侧，漏一边就会显示成空 diff。 */
+    private static List<DiffEntry> filterByPath(List<DiffEntry> entries, String path) {
+        List<DiffEntry> kept = new ArrayList<>();
+        for (DiffEntry entry : entries) {
+            if (path.equals(entry.getNewPath()) || path.equals(entry.getOldPath())) {
+                kept.add(entry);
+            }
+        }
+        return kept;
     }
 
     @SuppressWarnings("CharsetObjectCanBeUsed")

@@ -1,13 +1,15 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
+    <!-- 上半：status 原始输出。TextView 高度是 wrap_content，靠本层（权重决定）的边界裁掉，
+         滚动由 ScrollingMovementMethod 负责，和改版前一样。 -->
     <RelativeLayout
         android:id="@+id/status_text"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_above="@+id/diff_buttons"
-        android:layout_alignParentTop="true">
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
         <ProgressBar
             android:id="@+id/loading"
@@ -29,11 +31,52 @@
             android:visibility="gone" />
     </RelativeLayout>
 
+    <!-- 分割条：40dp 的触摸区，比握把本身大得多，就是为了让人有意地去拖它，
+         别和上半区的「下滑刷新」手势混在一起。比例存进 repo_view_state。 -->
+    <FrameLayout
+        android:id="@+id/status_split_handle"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/status_split_handle_height"
+        android:visibility="gone">
+
+        <View
+            android:layout_width="40dp"
+            android:layout_height="3dp"
+            android:layout_gravity="center"
+            android:background="@color/general_gray_text_color" />
+    </FrameLayout>
+
+    <!-- 下半：变更文件列表（相对路径）。空仓库时本层和分割条一起收起，上半占满。 -->
+    <LinearLayout
+        android:id="@+id/status_files_pane"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/status_files_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingLeft="@dimen/general_padding_larger"
+            android:paddingTop="@dimen/general_padding"
+            android:paddingRight="@dimen/general_padding_larger"
+            android:paddingBottom="@dimen/general_padding"
+            android:textColor="@color/general_gray_text_color"
+            android:textSize="@dimen/status_files_header_text_size" />
+
+        <ListView
+            android:id="@+id/statusFilesList"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+    </LinearLayout>
+
     <LinearLayout
         android:id="@+id/diff_buttons"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
         android:orientation="vertical">
 
         <Button
@@ -48,4 +91,4 @@
             android:layout_height="wrap_content"
             android:text="@string/dialog_show_staged_diff" />
     </LinearLayout>
-</RelativeLayout>
+</LinearLayout>
