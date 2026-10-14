@@ -139,14 +139,26 @@ public class FilesFragment extends RepoDetailFragment {
                 return true;
             });
 
-        if (savedInstanceState != null) {
+        // 恢复「上次看到哪个目录」。切 tab 会把本页 view 销毁再重建：ViewPager 默认
+        // offscreenPageLimit=1，滑到 status 页时 Files 页已出界，FragmentPagerAdapter 走
+        // detach —— fragment 实例还在（mCurrentDir 字段保留），只是 view 重建；activity
+        // 整体重建（旋转 / 进程被回收）时则是新实例 + savedInstanceState。两条路都不能
+        // 一律 reset()：那正是「切到 status 看一眼、切回来却回到顶层目录」的根因 ——
+        // 恢复出来的目录会被紧随其后的 reset() 覆盖成仓库根。
+        if (mCurrentDir == null && savedInstanceState != null) {
             String currentDirPath = savedInstanceState.getString(CURRENT_DIR);
             if (currentDirPath != null) {
                 mCurrentDir = new File(currentDirPath);
-                setCurrentDir(mCurrentDir);
             }
         }
-        reset();
+        // 目录可能在离开期间被删掉 / 改名（例如在提交页检出了旧版本、或在别处删了它），
+        // 指不到就放弃恢复，落回仓库根。
+        if (mCurrentDir != null && mCurrentDir.isDirectory()) {
+            // view 重建后 adapter 是新的，必须重列一次；排序设置由 adapter 构造时读回
+            setCurrentDir(mCurrentDir);
+        } else {
+            reset();
+        }
         return v;
     }
 
