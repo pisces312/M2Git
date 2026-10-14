@@ -491,7 +491,7 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         holder.repoRemote.setText(repo.getRemoteURL());
         TagChipRenderer.fillTagRow(holder.tagRow, repo.getTagNames(), this::toggleFilterByName);
 
-        if (!repo.getRepoStatus().equals(RepoContract.REPO_STATUS_NULL)) {
+        if (!RepoContract.REPO_STATUS_NULL.equals(repo.getRepoStatus())) {
             holder.commitMsgContainer.setVisibility(View.GONE);
             holder.progressContainer.setVisibility(View.VISIBLE);
             holder.progressMsg.setText(repo.getRepoStatus());
@@ -512,6 +512,17 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
             holder.commitAuthor.setText(repo.getLastCommitter());
             holder.authorIcon.setVisibility(View.VISIBLE);
             BasicFunctions.setAvatarImage(holder.authorIcon, repo.getLastCommitterEmail());
+        } else {
+            // 兜底：既没有任务状态、也没有提交信息（刚导入/刚注册、还没做过任何操作的仓库）。
+            // 这里必须显式收掉两个容器 —— 它们在 XML 里都是默认 VISIBLE，什么都不做的话
+            // progressContainer 里那个 ImageButton（cancelBtn，ImageButton 默认 focusable）
+            // 会让整行出现可聚焦后代，AbsListView.onTouchEvent 的 child.hasFocusable() 为真就
+            // 跳过整行的 press 记账，短按和长按会一起失效：表现为「空仓库点不进详情页、
+            // 长按也弹不出菜单」（真机 + 模拟器实测）。authorIcon 一并收掉，避免复用视图时
+            // 残留上一行的头像。
+            holder.commitMsgContainer.setVisibility(View.GONE);
+            holder.progressContainer.setVisibility(View.GONE);
+            holder.authorIcon.setVisibility(View.GONE);
         }
     }
 
@@ -594,7 +605,7 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
     public boolean onItemLongClick(AdapterView<?> adapterView, View view, int position, long id) {
         final Repo repo = getItem(position);
         if (repo == null) return false;
-        if (!repo.getRepoStatus().equals(RepoContract.REPO_STATUS_NULL)) return false;
+        if (!RepoContract.REPO_STATUS_NULL.equals(repo.getRepoStatus())) return false;
         Context context = getContext();
         if (context instanceof BaseCompatActivity) {
             showRepoOptionsDialog((BaseCompatActivity) context, repo);
