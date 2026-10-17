@@ -1,72 +1,193 @@
-# MGit
+# M2Git
 
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Zacharia2/MGit/total)
+[中文](#中文) | [English](#english)
 
-MGit是一款Git客户端安卓应用。（Version ≥ Android 12）。拥有常用的拉取、推送、提交、合并、克隆、比较、衍合、择取、创建新的分支、添加本地仓库、重置更改等等功能。当前维护者为 maks/MGit，此分支的设计意义和目标是填补Android平台上对Git知识库同步功能的空白。
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/pisces312/M2Git/total)
 
-## 快速开始
+M2Git 是一款 Git 客户端安卓应用（Android 12+）。本仓库是基于 [Zacharia2/M2Git](https://github.com/Zacharia2/M2Git) 的自用 fork，在其之上持续做隐私加固、瘦身与功能迭代（当前版本 1.8.10）。
 
-### 使用多远程同步
+---
 
-增加功能：同步、撤销提交、Tokens设置、默认仓库目录，并所有依赖的软件包进行升级。修复暂存所有文件过慢问题、修复inlater has been closed导致的解压缩问题、修复 avatar 全球通用头像、修复仓库列表打开远程地址问题、修改提交命令中的暂存所有已跟踪的文件选项为暂存所有文件选项，减少一步暂存所有文件的步骤，以及优化一些使用体验等等。2025.12.17：默认外部存储、本地lfs（不支持克隆拉取lfs）、webdav 服务（小心使用，在安全的局域网中使用）、下拉刷新状态、新的异步任务、升级jgit、验证凭证管理器逻辑、变更包名
+## 中文
 
-MGit+Gitee用来同步obsidian、logseq等笔记库非常迅速且附加历史版本，可以随时回滚查看历史记录。国内推荐使用Gitee作为同步使用的默认远程仓库；用Github作为工作和备份用的远程仓库，可定时用桌面端Git命令进行同步。在桌面端使用git remote add添加多远程仓库Gitee和Github。移动端只使用默认默认的Gitee远程仓库，安装并打开MGit，点击顶部导航栏右侧菜单中的设置，配置Git用户名和用户邮箱。若你的仓库是私有的，则需要配置token账户和token秘钥。Token在Gitee中点击 `用户头像-设置-令牌` ，然后点击生成令牌。此令牌专用于访问你的私有库。设置好后，点击导航栏最右侧菜单、点击克隆、填入克隆地址，等待克隆完成。你也可以选择导入，在导入时勾选导入为外部仓库。外部仓库和内部仓库的区别在于是否存储在软件自己的内部存储私有目录中，内部存储私有目录一般可以看做：`data/data/package_name`、`android/data/package_name`。
+### 功能概览
+
+常用 Git 操作一应俱全：拉取、推送、提交、合并、克隆、比较、衍合、择取、创建/删除分支、重置更改、添加本地仓库、双向同步（Sync）、撤销提交、多账号凭证管理（SSH / Token）、浅克隆深度选项。
+
+用 M2Git + Gitee/GitHub 同步 Obsidian、Logseq 等笔记库非常迅速，且自带历史版本，可随时回滚查看。
+
+### 本 fork 的主要改动（相对上游 v1.8.4）
+
+**隐私与瘦身**
+
+- 移除 ACRA 崩溃上报与所有敏感信息日志
+- 关闭系统 Auto Backup：仓库密码与 Token 不再被系统云备份 / 换机迁移带走（应用自带的加密导出导入不受影响）
+- APK 体积从 35.8 MB 瘦身到约 12 MB
+- 移除内置 WebDAV 服务器功能（攻击面大，不再提供）
+
+**新功能**
+
+- **仓库标签体系**：仓库列表平铺展示，条目底部显示标签；顶部常驻标签筛选条，支持「全部满足 / 任一满足」；点条目里的标签即筛选；详情页工具栏一键编辑标签
+- **列表搜索重做**：忽略大小写的归一化子串匹配，覆盖显示名、本地路径、远程地址、提交者与提交信息，不再受 SQL 通配符干扰，非 ASCII 文本正常匹配
+- **文件页排序**：名称 / 修改时间 / 大小，升序 / 降序，目录优先；与仓库列表共用同一排序面板，选择按仓库持久保存
+- **状态页变更文件列表**：上半部原始 `git status` 输出，下半部带状态徽标的扁平文件列表，分割条可拖动，长按文件直接看 diff
+- **提交历史滚动分页**：首屏 100 条，滚到底自动续取；搜索前先补齐全部历史
+- **加密备份 / 恢复**：设置、仓库与凭据经 SAF + PBKDF2(65536) + AES/GCM 加密导出
+- **仓库桌面快捷方式**、Markdown 打开模式设置、长按文件菜单「复制路径 / 复制文件名」
+- **代码浏览现代化**：jQuery 3.7.1 slim / CodeMirror 5.65.21（按语言切包）/ highlight.js 11.11.2，代码高亮与 diff 渲染全面换代，清除旧版已知 CVE
+- 设置页显示构建溯源（commit / 构建时间 / JGit 与 JSch 版本）；应用内语言切换改用 per-app locale（Android 13+）
+
+**底层升级**
+
+- JGit 7.8.0、JSch 2.28.7（mwiede fork）
+- 构建栈 AGP 9.4.0 / Gradle 9.6.1，minSdk 31
+- 文件页列目录移出主线程，大目录不卡界面
+
+### 下载与安装
+
+从 [Releases](https://github.com/pisces312/M2Git/releases) 下载签名 APK。注意：
+
+- **仅含 arm64-v8a**（64 位 ARM 设备；模拟器可经 ARM 转译运行）
+- **签名与上游 Zacharia2/M2Git 官方版不同**：装过上游版的设备必须先卸载，才能安装本 fork 的包；本 fork 的 v1.8.5 及之后版本之间可直接覆盖升级
+- LFS 仅支持本地仓库配置（`lfs install`），**暂不支持克隆 / 拉取 LFS 对象**
+
+### 界面预览
+
+| 标签筛选 | 文件页排序 | 代码文件高亮 |
+| :---: | :---: | :---: |
+| ![标签筛选](docs/images/release-1.8.8-tag-filter.jpg) | ![文件页排序](docs/images/release-1.8.9-files-sort-panel.jpg) | ![代码文件高亮](docs/images/release-1.8.10-code-file.png) |
+
+### 快速开始：多远程同步笔记库
+
+国内推荐使用 Gitee 作为同步用的默认远程仓库，GitHub 作为工作和备份用的远程仓库，桌面端可定时用 `git remote add` 添加多远程后手动同步。移动端只使用默认的 Gitee 远程：
+
+1. 安装并打开 M2Git，进入设置，配置 Git 用户名和用户邮箱
+2. 若仓库是私有的，配置 Token 账户和 Token 秘钥（Gitee：`用户头像 → 设置 → 令牌`，生成专用令牌）
+3. 点击导航栏最右侧菜单 → 克隆，填入克隆地址；也可以选择导入（导入时可勾选「导入为外部仓库」。外部仓库与内部仓库的区别在于是否存储在应用私有目录中）
+4. 在仓库列表点击仓库进入详情页，左右滑动切换「文件 / 提交 / 状态」三个页面
+5. 日常同步：详情页导航栏最右侧菜单 → 同步，按同步策略一键完成
 
 ![image](https://github.com/user-attachments/assets/e90b58aa-e368-4939-ba3e-254c0bcebd8e)
 
-在仓库列表中，点击仓库可以进入仓库详情页，在详情页可以左右滑动，从左到右分别有三个页面依次为：文件、提交、状态。可以在文件查看仓库中的文件，在提交可以查看提交的历史，在状态可以查看修改。一般使用状态查看修改状态，点击未暂存DIFF可以看到有没有修改的还没暂存的文件。我通常会使用仓库详情页中导航栏中最右侧的菜单按钮，打开后点击同步按钮，然后直接按照同步策略进行同步。现在好好享用安卓版本的快速同步功能吧！
-
 ### 克隆远程仓库
 
-1. 点击`+`图标添加新仓库
-2. 输入远程URL（见下面的URL格式）
-3. 输入本地仓库名称 - 注意这**不是**完整路径，因为MGit将所有仓库存储在同一个本地目录中（可以在MGit设置中更改）
-4. 点击`Clone`按钮
-5. 如果需要，系统会提示您输入连接到远程仓库的凭据。MGit会将仓库（所有分支）下载到您的设备上
+1. 点击 `+` 图标添加新仓库
+2. 输入远程 URL（见下面的 URL 格式）
+3. 输入本地仓库名称 —— 注意这**不是**完整路径，所有仓库存储在同一个本地目录中（可在设置中更改）
+4. 点击 `Clone`，如需要会提示输入凭据，随后仓库（所有分支）会下载到设备上
 
 ### 创建本地仓库
 
-1. 点击`+`图标添加新仓库
-2. 点击`Init Local`创建本地仓库
-3. 当提示时，输入该仓库的名称
-4. 将创建一个本地的空仓库
+1. 点击 `+` 图标添加新仓库
+2. 点击 `Init Local` 创建本地仓库
+3. 输入仓库名称，即创建一个本地空仓库
 
-### URL格式
+### URL 格式
 
-#### SSH URL
+**SSH**
 
-* 运行在标准端口（22）的SSH：`ssh://username@server_name/path/to/repo`
-* 运行在非标准端口的SSH：`ssh://username@server_name:port/path/to/repo`
-* 需要填写`username` - 默认情况下，MGit会尝试以root身份连接。
+- 标准端口（22）：`ssh://username@server_name/path/to/repo`
+- 非标准端口：`ssh://username@server_name:port/path/to/repo`
+- 需要填写 `username`，默认情况下会尝试以 root 身份连接
 
-#### HTTP(S) URL
+**HTTP(S)**
 
-* HTTP(S) URL：`https://server_name/path/to/repo`
+- `https://server_name/path/to/repo`
 
-## WebDav
+### 反馈
 
-配合WebDav客户端（RaiDrive）使用，可在任意安全的局域网环境中将手机挂载为网络磁盘。
+遇到问题或有建议，欢迎在本仓库的 [Issues](https://github.com/pisces312/M2Git/issues) 反馈（应用内「设置 → 关于 → 反馈」同样指向这里）。
 
-以下是对 M2Git WebDav 的功能评估。
+---
 
-| 大类           | 小类                   | 功能项             | 对应RFC/标准       | 功能描述                                                                                    | 普遍支持度/说明  | **M2Git 实现情况**                                                       |
-| :------------- | :--------------------- | :----------------- | :----------------- | :------------------------------------------------------------------------------------------ | :--------------- | :----------------------------------------------------------------------- |
-| WebDav Class 1 | **1.1 资源与集合管理** | 基本方法           | RFC 4918           | `MKCOL`（创建集合）、`PUT` / `DELETE` / `COPY` / `MOVE`                                     | **核心必备**     | ✔️ 完整实现文件、目录的创建、删除、复制、移动操作。                       |
-|                |                        | 集合成员枚举       | RFC 4918           | `PROPFIND` 方法配合 `Depth: 1` 或 `infinity`，列出集合目录内容                              | **核心必备**     | ✔️ 使用 `FsDirectoryResource` 提供目录内容枚举。                          |
-|                |                        | 覆盖行为与前置条件 | RFC 4918           | `Overwrite: T` 头, `If-Match`, `If-None-Match` 条件操作                                     | **核心必备**     | ✔️ 条件请求支持。                                                         |
-|                | **1.2 属性管理**       | 死属性与活属性     | RFC 4918           | **死属性**：客户端自定义元数据；**活属性**：由服务器管理，自动填充如文件大小/创建时间等信息 | **核心必备**     | ⚠️ 仅支持简单属性读写，活属性如`creationdate`未完全实现。                 |
-|                |                        | 属性操作方法       | RFC 4918           | `PROPFIND`（查询）和 `PROPPATCH`（设置/删除）                                               | **核心必备**     | ✔️ 属性操作基本支持，资源可完成属性读写；                                 |
-|                |                        | 关键活属性         | RFC 4918           | 如 `creationdate`, `getetag` 等属性，服务器生成基础资源元数据                               | **实践必备**     | ⚠️ 部分活属性支持有限，ETag 生成未标准化（目前未使用唯一文件哈希生成）。  |
-|                | **1.3 方法发现**       | OPTIONS 方法       | RFC 7231, 4918     | 声明服务器的可支持功能，例如返回 `DAV` 标头中识别支持的扩展版本。                           | **必备**         | ✔️ OPTIONS 方法支持基本能力声明，未包含明确扩展声明，如高级协议支持能力。 |
-|                | **1.4 内容传输**       | 部分内容传输       | RFC 7233           | `Range` / `Content-Range` 允许流式传输或断点续传大文件。                                    | **核心功能**     | ✔️ 文件分块传输功能完整，部分内容传输和断点续传实现，但尚未并发优化。     |
-|                | **1.5 缓存与验证**     | 缓存控制           | RFC 7234           | 使用 ETag 和 `Last-Modified` 确保客户端正常缓存和验证资源版本。                             | **重要功能**     | ⚠️ 基本支持 ETag 和 `Last-Modified`，生成值稳定性和唯一性不足，但够用。   |
-| 实践扩展       | **2.1 配额与存储报告** | 配额属性           | 自定义/`DAV:` 扩展 | 提供磁盘空间限制或存储监控，如 quota-available-bytes 或使用限额报告。                       | **企业功能常见** | ✔️ 基本实现磁盘空间报告功能，仅根目录                                     |
-|                | **2.2 主流兼容性**     | Windows 网盘       | Microsoft 要求     | 确保资源兼容 Windows 的 WebDAV 网盘映射方式（`net use` 方法）。                             | **重要**         | ⚠️ 基本支持 Windows 网络驱动映射，但存在部分兼容性细节问题。              |
-|                |                        | macOS Finder       | Apple 要求         | 确保目录在 Finder 应用中的正常展示，包括 `.DS_Store` 支持。                                 | **重要**         | ⚠️ macOS 的 Finder 支持基础功能，但深度交互优化缺失。                     |
-|                | **2.3 现代安全**       | HTTPS 强制         | 安全最佳实践       | 强制加密传输，将所有 HTTP 请求转为 HTTPS。                                                  | **生产环境必须** | ❌ 未强制支持 HTTPS 或加密传输，传输安全性薄弱。                          |
+## English
 
-# 许可证
+### Overview
 
-请参阅 [GPLv3](./LICENSE) 由`maks@manichord.com`
-编写的所有代码，您可以选择也可以在[MIT许可证](https://en.wikipedia.org/wiki/MIT_License)下使用。
+M2Git is a Git client for Android (Android 12+). This repository is a personal fork of [Zacharia2/M2Git](https://github.com/Zacharia2/M2Git), continuously hardened for privacy, slimmed down, and extended with new features (current version: 1.8.10).
 
+It covers the everyday Git workflow: pull, push, commit, merge, clone, diff, rebase, cherry-pick, branch creation/deletion, reset, adding local repositories, two-way sync, undo commit, multi-account credentials (SSH / Token), and shallow clone depth.
+
+M2Git + Gitee/GitHub is a fast way to sync note vaults such as Obsidian or Logseq, with full history available for rollback at any time.
+
+### What this fork changes (vs upstream v1.8.4)
+
+**Privacy & size**
+
+- Removed the ACRA crash reporter and all sensitive-info logging
+- Disabled system Auto Backup: repository passwords and tokens are no longer carried off by cloud backup / device migration (the app's own encrypted export/import is unaffected)
+- APK slimmed from 35.8 MB to ~12 MB
+- Removed the built-in WebDAV server feature (large attack surface, no longer offered)
+
+**Features**
+
+- **Repository tags**: flat repository list with tags shown under each entry; a persistent tag filter bar at the top with "match all / match any" modes; tap a tag on an entry to filter by it; one-tap tag editing from the detail-page toolbar
+- **Reworked list search**: case-insensitive, normalized substring matching across display name, local path, remote URL, committer and commit message; no more SQL wildcard interference; non-ASCII text matches correctly
+- **Sortable file list**: by name / modified time / size, ascending or descending, with a folders-first toggle; shares the same sort panel as the repository list, persisted per repository
+- **Status page change list**: raw `git status` output on top, a flat file list with status badges below, draggable splitter, long-press a file to view its diff
+- **Paged commit history**: first 100 commits load initially, more are fetched automatically on scroll; search backfills the full history first
+- **Encrypted backup / restore**: settings, repositories and credentials exported via SAF + PBKDF2(65536) + AES/GCM
+- **Desktop shortcuts per repository**, Markdown open-mode setting, "copy path / copy file name" in the long-press file menu
+- **Modernized code viewing**: jQuery 3.7.1 slim / CodeMirror 5.65.21 (per-language bundle) / highlight.js 11.11.2 — syntax highlighting and diff rendering fully upgraded, known CVEs in the old stack removed
+- Settings page shows build provenance (commit / build time / JGit & JSch versions); in-app language switching now uses Android per-app locales (Android 13+)
+
+**Under the hood**
+
+- JGit 7.8.0, JSch 2.28.7 (mwiede fork)
+- Build stack: AGP 9.4.0 / Gradle 9.6.1, minSdk 31
+- Directory listing on the Files page moved off the main thread — large directories no longer freeze the UI
+
+### Download & install
+
+Grab the signed APK from [Releases](https://github.com/pisces312/M2Git/releases). Notes:
+
+- **arm64-v8a only** (64-bit ARM devices; emulators can run it through ARM translation)
+- **Signed with a different key than upstream Zacharia2/M2Git**: uninstall the upstream build first; builds from this fork (v1.8.5 and later) upgrade in place
+- LFS is limited to local repository configuration (`lfs install`); **cloning / pulling LFS objects is not supported yet**
+
+### Quick start: multi-remote note sync
+
+Use Gitee as the default sync remote and GitHub as a work/backup remote; on desktop, add both with `git remote add` and sync periodically. On mobile:
+
+1. Install and open M2Git, then set your Git user name and email in Settings
+2. For private repositories, configure your token account and secret (on Gitee: avatar → Settings → Tokens)
+3. Menu → Clone, enter the repository URL; or import an existing repository (optionally as an external repository, stored outside the app's private directory)
+4. Tap a repository to open the detail page; swipe between the Files / Commits / Status tabs
+5. Day-to-day: detail page menu → Sync, and the configured sync strategy runs in one tap
+
+### Clone a remote repository
+
+1. Tap the `+` icon to add a new repository
+2. Enter the remote URL (see URL formats below)
+3. Enter a local repository name — this is **not** a full path; all repositories live in one local directory (changeable in Settings)
+4. Tap `Clone`; you will be prompted for credentials if needed, and the repository (all branches) is downloaded to your device
+
+### Create a local repository
+
+1. Tap the `+` icon to add a new repository
+2. Tap `Init Local`
+3. Enter a name — an empty local repository is created
+
+### URL formats
+
+**SSH**
+
+- Standard port (22): `ssh://username@server_name/path/to/repo`
+- Non-standard port: `ssh://username@server_name:port/path/to/repo`
+- `username` is required; by default M2Git tries to connect as root
+
+**HTTP(S)**
+
+- `https://server_name/path/to/repo`
+
+### Feedback
+
+Found a bug or have an idea? Open an issue in this repository's [Issues](https://github.com/pisces312/M2Git/issues) (the in-app "Settings → About → Feedback" link points here too).
+
+---
+
+# 许可证 / License
+
+请参阅 [GPLv3](./LICENSE) 由 `maks@manichord.com` 编写的所有代码，您可以选择也可以在 [MIT 许可证](https://en.wikipedia.org/wiki/MIT_License) 下使用。
+
+All code written by `maks@manichord.com` is licensed under [GPLv3](./LICENSE); at your option it may also be used under the [MIT License](https://en.wikipedia.org/wiki/MIT_License).
