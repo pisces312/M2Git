@@ -99,16 +99,27 @@ BUNDLE="$JS_OUT/codemirror-bundle.min.js"
   echo " * modes:  ${CM_MODES[*]}"
   echo " */"
 } > "$TMP/bundle.js"
+append_bundle_part() { # append_bundle_part <part-file>
+  cat "$1" >> "$TMP/bundle.js"
+  # jsDelivr parts end with a //# sourceMappingURL comment and may have no final
+  # newline. Always terminate that comment and separate adjacent minified programs.
+  printf '\n;\n' >> "$TMP/bundle.js"
+}
+
 fetch "$CDNJS/codemirror/$CM_VERSION/codemirror.min.js" "$TMP/part.js"
-cat "$TMP/part.js" >> "$TMP/bundle.js"
+append_bundle_part "$TMP/part.js"
 for a in "${CM_ADDONS[@]}"; do
   fetch "$GH/$a" "$TMP/part.js"
-  cat "$TMP/part.js" >> "$TMP/bundle.js"
+  append_bundle_part "$TMP/part.js"
 done
 for m in "${CM_MODES[@]}"; do
   fetch "$GH/mode/$m/$m.min.js" "$TMP/part.js"
-  cat "$TMP/part.js" >> "$TMP/bundle.js"
+  append_bundle_part "$TMP/part.js"
 done
+command -v node >/dev/null 2>&1 || {
+  echo "ERROR: node is required to validate the generated CodeMirror bundle"; exit 1; }
+node --check "$TMP/bundle.js" >/dev/null || {
+  echo "ERROR: generated CodeMirror bundle is not valid JavaScript"; exit 1; }
 mv "$TMP/bundle.js" "$BUNDLE"
 echo "bundle: $(wc -c < "$BUNDLE") bytes (was 886,334 for the 2016 all-modes pack)"
 

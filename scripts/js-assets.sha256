@@ -2,7 +2,7 @@
 # regenerate with: ./scripts/rebuild-js-assets.sh
 9261efb3407e3a9096e4654750d8eff6b3a663422f48845c7fbcc65034c340cf *app/src/main/assets/js/jquery.slim.min.js
 62960a35954a685dbe12958092f661a185231e9f5f5c44dc3c1e237d9e087d5a *app/src/main/assets/js/highlight.min.js
-d5e24a151b2f2b8e1b8588e2b6ba8fb6c021b71555871a4a41131a27a23a1430 *app/src/main/assets/js/codemirror-bundle.min.js
+709330ecb2c6dcd03fbe349ff6854299e48072d6277dd6084f7ef78d86e0323b *app/src/main/assets/js/codemirror-bundle.min.js
 eb494ea972d2661ef86f7f6ac656dd6786d721e49c9c1b46e1eb967e4b6f9bf3 *app/src/main/assets/css/codemirror.css
 0802a6173fac71fae408d2a6189dff08e014482a2e13fa452750cec9155e9968 *app/src/main/assets/css/midnight.css
 2a6dd631f54bc02c3df7cfe84512537438b188f941b5f42eddcce95a00452183 *app/src/main/assets/css/hljs-rainbow.css
