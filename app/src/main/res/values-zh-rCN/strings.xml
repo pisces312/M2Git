@@ -20,7 +20,6 @@
     <string name="action_sort">排序</string>
     <string name="action_tags">标签</string>
     <string name="action_tag_filter">按标签筛选</string>
-    <string name="action_feedback">反馈</string>
     <string name="action_choose_language">选择语言</string>
     <string name="action_mode_diff">比较</string>
     <string name="action_edit">编辑</string>
@@ -51,7 +50,6 @@
     <string name="label_new_file_name">新建文件名</string>
     <string name="label_key_size">密钥长度</string>
     <string name="label_rename">重命名</string>
-    <string name="label_send_feedback">发送反馈</string>
     <string name="label_import">导入</string>
     <string name="label_push">推送</string>
     <string name="label_push_all">全部推送</string>
@@ -188,7 +186,6 @@
     <string name="title_config_repo">仓库配置</string>
 
     <!-- toast msg -->
-    <string name="feedback_subject">反馈</string>
     <string name="cannot_delete_branch">无法删除 %s</string>
     <string name="cannot_delete_current_branch">无法删除当前检出的分支 %s</string>
     <string name="toast_status_untracked_no_diff">未跟踪文件没有可显示的差异</string>

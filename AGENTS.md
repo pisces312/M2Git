@@ -32,6 +32,7 @@
 - `origin` = pisces312/M2Git（fork，主远程；`main` 跟踪它，日常提交推这里）
 - `upstream` = Zacharia2/M2Git（原仓库，同步用：`git fetch upstream` 后比对 `main..upstream/main`）
 - 阿里云 codeup 备份远端已于 2026-10-11 删除（它原先占用 `origin` 名字，fork 远端 `github` 改名 `origin` 后不再存在），当前仓库只有上面两个远端。
+- **fork 已开 Issues**（2026-10-17 `gh repo edit pisces312/M2Git --enable-issues`）：设置页「关于 → Feedback」用的 `feedback_url`（`values/strings.xml`，`translatable="false"`，只在 `SettingsFragment` 里经 `ACTION_VIEW` 打开）指向 `https://github.com/pisces312/M2Git/issues/new`，反馈落在自己的仓库。**不要把 URL 改回 upstream**，也不要关 fork 的 Issues：GitHub 对 fork 默认禁用 Issues，禁用时 `/issues/new` 是 404（实测禁用→404、启用→200），而 app 侧没有兜底，点「反馈」就是死页。同步 upstream 时留意这条。
 
 ## 签名
 
