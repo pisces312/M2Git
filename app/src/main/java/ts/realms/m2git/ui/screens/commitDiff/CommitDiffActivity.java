@@ -32,8 +32,8 @@ import ts.realms.m2git.core.command.tasks.local.CommitDiffTask;
 import ts.realms.m2git.core.models.Repo;
 import ts.realms.m2git.local.preference.Profile;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity;
-import ts.realms.m2git.utils.CodeGuesser;
 import ts.realms.m2git.utils.FsUtils;
+import ts.realms.m2git.utils.WebViewJs;
 
 public class CommitDiffActivity extends BaseCompatActivity {
 
@@ -53,6 +53,7 @@ public class CommitDiffActivity extends BaseCompatActivity {
         + " <link type=\"text/css\" rel=\"stylesheet\" href=\"css/local_commits_diff.css\" />"
         + "</head><body></body>";
     private WebView mDiffContent;
+    private WebViewJs mJs;
     private ProgressBar mLoading;
     private String mOldCommit;
     private String mNewCommit;
@@ -94,6 +95,8 @@ public class CommitDiffActivity extends BaseCompatActivity {
 
     private void loadFileContent() {
         mDiffContent.addJavascriptInterface(new CodeLoader(), JS_INF);
+        // JS 通道要在 loadDataWithBaseURL 之前挂好，否则错过这唯一一次导航的 onPageFinished
+        mJs = new WebViewJs(mDiffContent);
         mDiffContent.loadDataWithBaseURL("file:///android_asset/", HTML_TMPL,
             "text/html", "utf-8", null);
         WebSettings webSettings = mDiffContent.getSettings();
@@ -265,7 +268,8 @@ public class CommitDiffActivity extends BaseCompatActivity {
                     mDiffStrs = diffStrs;
                     mCommit = commit;
                     mLoading.setVisibility(View.GONE);
-                    mDiffContent.loadUrl(CodeGuesser.wrapUrlScript("notifyEntriesReady();"));
+                    // pushResult 由 MAsyncTask 经 mainLooper post 送达（onPostExecute），已在主线程
+                    mJs.eval("notifyEntriesReady();");
                 }
             }, mShowDescription, mDiffPath);
             diffTask.executeTask();

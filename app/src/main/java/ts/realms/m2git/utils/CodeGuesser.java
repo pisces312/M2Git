@@ -11,7 +11,6 @@ import java.util.Map;
  */
 public class CodeGuesser {
 
-    public final static String URL_SCRIPT_WRAPPER = "javascript:(function(){%s;})()";
     private final static String[][] FILENAME_EXTENSION_ARRAY = {
         {"APL", "text/apl", "apl"},
         {"Asterisk dialplan", "text/x-asterisk", "conf"},
@@ -110,10 +109,6 @@ public class CodeGuesser {
 
     public static String getLanguageTag(String language) {
         return mDisplayTagMap.get(language);
-    }
-
-    public static String wrapUrlScript(String script) {
-        return String.format(URL_SCRIPT_WRAPPER, script);
     }
 
 }

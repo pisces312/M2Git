@@ -15,6 +15,7 @@ import android.webkit.WebView;
 import android.widget.ProgressBar;
 
 import org.apache.commons.io.FileUtils;
+import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,6 +26,7 @@ import ts.realms.m2git.local.preference.Profile;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity;
 import ts.realms.m2git.ui.viewModels.BaseFragment;
 import ts.realms.m2git.utils.CodeGuesser;
+import ts.realms.m2git.utils.WebViewJs;
 
 /**
  * Created by phcoder on 09.12.15.
@@ -32,6 +34,7 @@ import ts.realms.m2git.utils.CodeGuesser;
 public class ViewFileFragment extends BaseFragment {
     private static final String JS_INF = "CodeLoader";
     private WebView mFileContent;
+    private WebViewJs mJs;
     private ProgressBar mLoading;
     private File mFile;
     private short mActivityMode = ViewFileActivity.TAG_MODE_NORMAL;
@@ -71,6 +74,8 @@ public class ViewFileFragment extends BaseFragment {
         });
         mFileContent.setBackgroundColor(Color.TRANSPARENT);
 
+        // JS 通道要在 loadUrl 之前挂好：onPageFinished 门控从第一次导航就开始生效
+        mJs = new WebViewJs(mFileContent);
         loadFileContent();
         return v;
     }
@@ -89,12 +94,13 @@ public class ViewFileFragment extends BaseFragment {
     }
 
     public void copyAll() {
-        mFileContent.loadUrl(CodeGuesser.wrapUrlScript("copy_all();"));
+        mJs.eval("copy_all();");
     }
 
     public void setLanguage(String lang) {
-        String js = String.format("setLang('%s')", lang);
-        mFileContent.loadUrl(CodeGuesser.wrapUrlScript(js));
+        // JSONObject.quote 负责转义与引号（null 会得到 JS 字面量 null，正好是「无语言」的语义；
+        // 旧写法 String.format("setLang('%s')", null) 会拼出 setLang('null')，反而是错的）
+        mJs.eval("setLang(" + JSONObject.quote(lang) + ");");
     }
 
     @Override
@@ -159,11 +165,9 @@ public class ViewFileFragment extends BaseFragment {
                 } else {
                     lang = CodeGuesser.guessCodeType(mFile.getName());
                 }
-                String js = String.format("setLang('%s')", lang);
-                mFileContent.loadUrl(CodeGuesser.wrapUrlScript(js));
+                mJs.eval("setLang(" + JSONObject.quote(lang) + ");");
                 mLoading.setVisibility(View.INVISIBLE);
-                mFileContent.loadUrl(CodeGuesser
-                    .wrapUrlScript("display();"));
+                mJs.eval("display();");
             });
         }
     }
