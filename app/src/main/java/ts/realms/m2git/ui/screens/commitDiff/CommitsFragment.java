@@ -12,6 +12,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.ListView;
 
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -81,6 +82,24 @@ public class CommitsFragment extends BaseFragment implements ActionMode.Callback
             mChosenItem, mRepo, mFile);
         mCommitsListAdapter.resetCommit();
         mCommitsList.setAdapter(mCommitsListAdapter);
+        // 分页：离底部还有 5 行就把下一页取走，滚到那里时通常已经到位，感知不到停顿。
+        // 取不取、什么时候不再取，判断都在 adapter 里（hasNextPage / loadNextPage 的闸门），
+        // 这里只负责「用户在往下滚」这一个事实。
+        mCommitsList.setOnScrollListener(new AbsListView.OnScrollListener() {
+            @Override
+            public void onScroll(AbsListView view, int firstVisibleItem,
+                                 int visibleItemCount, int totalItemCount) {
+                if (mCommitsListAdapter == null || visibleItemCount == 0) return;
+                if (!mCommitsListAdapter.hasNextPage()) return;
+                if (firstVisibleItem + visibleItemCount >= totalItemCount - 5) {
+                    mCommitsListAdapter.loadNextPage();
+                }
+            }
+
+            @Override
+            public void onScrollStateChanged(AbsListView view, int scrollState) {
+            }
+        });
 
         mCommitsList
             .setOnItemClickListener((adapterView, view, position, id) -> {

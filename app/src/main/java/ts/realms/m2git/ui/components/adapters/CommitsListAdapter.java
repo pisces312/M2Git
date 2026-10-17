@@ -30,6 +30,13 @@ import ts.realms.m2git.utils.BasicFunctions;
  */
 public class CommitsListAdapter extends BaseAdapter {
 
+    /**
+     * 首屏只取这么多条。理由：以前 {@code resetCommit()} 一次把整个历史走一遍灌进
+     * {@link #mAll}，而 JGit 那一趟的代价随历史长度线性增长（本仓库 1045 条，随便一个
+     * fork 的上游就是几万条）。100 行远超一屏可见数，滚到底再续取。
+     */
+    private static final int PAGE_SIZE = 100;
+
     private final Repo mRepo;
     private final DateFormat mCommitDateFormatter;
     private final Set<Integer> mChosenItems;
@@ -44,6 +51,17 @@ public class CommitsListAdapter extends BaseAdapter {
     private boolean mIsIncomplete;
     private int mProgressCursor;
     private long mPostAtTime;
+    /** 上一批返回短于请求条数 => 历史已经取完，不用再发分页请求。 */
+    private boolean mHistoryExhausted;
+    /** 有一批分页在飞，防滚到底连点时重复请求同一页。 */
+    private boolean mLoadingMore;
+    /**
+     * 第几代列表。{@link #clear()} 递增它，也就是「作废所有在飞的请求」。
+     * 分页是追加语义，所以在飞的那一批必须能认出自己属于哪一代：pull 之后 {@code reset()}
+     * 会立刻再发一次 page 0，若上一代的旧结果晚到并追加，就会出现重复条目 —— 以前的代码是
+     * 整体替换 mAll，天然没有这个问题，改成追加就得把这道闸补上。
+     */
+    private int mGeneration;
 
     public CommitsListAdapter(Context context, Set<Integer> chosenItems,
                               Repo repo, String file) {
@@ -112,7 +130,26 @@ public class CommitsListAdapter extends BaseAdapter {
                 mFilter = query;
             }
             doFiltering();
+            // 搜索历来是「把 mAll 全扫一遍」，不是数据库查询。窗口没装满就开始过滤，命中的
+            // 只有前 PAGE_SIZE 条，用户会看到「明明有的提交搜不到」。所以过滤一挂上就把剩余
+            // 历史补齐（一次不限条数的请求）；补齐那批落地时回调里会再 doFiltering() 一次，
+            // 从 cursor 0 重扫完整历史。先出窗口内的结果，不空等。
+            maybeLoadRestOfHistory();
         }
+    }
+
+    /**
+     * 需要完整历史（搜索中）且还没拿全、并且当前没有在飞的那一批时，发一次不限条数的请求。
+     *
+     * 「没有在飞的批次」这个条件是这条路径唯一的并发闸门：滚动续取和搜索补齐共用同一个 mAll，
+     * 两个请求同时在飞时，第二个的 skip 是发请求那一刻的 mAll.size()，等第一个先落地它就已经
+     * 过期了 —— 结果是从中间某条重复往后再取一遍。所以谁都可以表达「我需要剩余历史」，但只有
+     * 这一处发请求，且每个出口都会再问一次（{@link #requestCommits} 的回调末尾）。
+     */
+    private void maybeLoadRestOfHistory() {
+        if (mFilter == null || mHistoryExhausted || mLoadingMore) return;
+        mLoadingMore = true;
+        requestCommits(mAll.size(), GetCommitTask.UNLIMITED);
     }
 
     @Override
@@ -215,7 +252,10 @@ public class CommitsListAdapter extends BaseAdapter {
     public void clear() {
         synchronized (mProgressLock) {
             stopFiltering();
+            mGeneration++;
             mAll = new ArrayList<>();
+            mHistoryExhausted = false;
+            mLoadingMore = false;
             if (mFilter == null) {
                 mFiltered = null;
             } else {
@@ -226,15 +266,73 @@ public class CommitsListAdapter extends BaseAdapter {
 
     public void resetCommit() {
         clear();
-        GetCommitTask getCommitTask = new GetCommitTask(mRepo, mFile,
+        synchronized (mProgressLock) {
+            mLoadingMore = true;
+            requestCommits(0, PAGE_SIZE);
+        }
+    }
+
+    /**
+     * 滚到底时由 {@code CommitsFragment} 调用，取下一页。
+     * 正在过滤时不动作：那一趟已经把剩余历史整个取走了（见 {@link #setFilter(String)}），
+     * 再叠一个分页只会让两批结果抢同一个 mAll。
+     */
+    public void loadNextPage() {
+        synchronized (mProgressLock) {
+            if (mFilter != null || mHistoryExhausted || mLoadingMore) return;
+            mLoadingMore = true;
+            requestCommits(mAll.size(), PAGE_SIZE);
+        }
+    }
+
+    /** 还有没有下一页可取（给滚动监听做阈值判断用，避免每次都空转一次加锁）。 */
+    public boolean hasNextPage() {
+        return !mHistoryExhausted && !mLoadingMore && mFilter == null;
+    }
+
+    /**
+     * 取一批历史并追加到 mAll。
+     *
+     * 追加用「复制一份再加」而不是原地 addAll：{@link BackgroundUpdate} 的扫描线程不持锁地
+     * 读 mAll（{@code mAll.size()} / {@code mAll.get(i)}），原地加长会让它读到一半新一半旧。
+     * 换新数组后，在跑的那一趟仍抱着旧快照走完；旧 mFiltered 存的是下标，而新条目只追加在尾部，
+     * 下标不会错位 —— 随后再 {@link #doFiltering()} 一次得到完整结果。
+     *
+     * 顺序前提已在 jgit 7.8.0 + 本仓库 1045 条历史上实测：新的在前、skip/maxCount 无重叠无空洞、
+     * 尾部不足一页是短返回（因此 {@code 返回条数 < 请求条数} 就是「到底了」的判据）。
+     */
+    private void requestCommits(int skip, int maxCount) {
+        final int requested = maxCount;
+        final int generation = mGeneration;
+        GetCommitTask getCommitTask = new GetCommitTask(mRepo, mFile, skip, maxCount,
             commits -> {
-                if (commits != null) {
-                    // TODO why == null
-                    synchronized (mProgressLock) {
-                        stopFiltering();
-                        mAll = new ArrayList<>(commits);
-                        doFiltering();
+                synchronized (mProgressLock) {
+                    // 这一批属于已经被作废的那一代列表，丢掉（不要动 flag，也不要追加）
+                    if (generation != mGeneration) return;
+                    if (commits == null) {
+                        // 任务失败或仓库打不开：不能把「这批没拿到」当成「历史到此为止」，
+                        // 否则一次瞬时失败会把后面的分页永久锁死。
+                        mLoadingMore = false;
+                        return;
                     }
+                    stopFiltering();
+                    ArrayList<RevCommit> next = new ArrayList<>(mAll);
+                    next.addAll(commits);
+                    mAll = next;
+                    if (requested == GetCommitTask.UNLIMITED) {
+                        mHistoryExhausted = true;
+                    } else {
+                        mHistoryExhausted = commits.size() < requested;
+                    }
+                    mLoadingMore = false;
+                    if (mFilter != null) {
+                        doFiltering();
+                    } else {
+                        notifyDataSetChanged();
+                    }
+                    // 这一批落地后 mLoadingMore 已经放开，之前被它挡住的「补齐剩余历史」在这里
+                    // 补发（滚动分页先落地、用户紧接着开始搜索的那条路径就靠这一句接上）。
+                    maybeLoadRestOfHistory();
                 }
             });
         getCommitTask.executeTask();

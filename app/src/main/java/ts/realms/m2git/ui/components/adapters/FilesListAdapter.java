@@ -2,6 +2,8 @@ package ts.realms.m2git.ui.components.adapters;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,10 +13,14 @@ import android.widget.TextView;
 
 import java.io.File;
 import java.io.FileFilter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import ts.realms.m2git.R;
 import ts.realms.m2git.local.preference.Profile;
@@ -24,6 +30,9 @@ import ts.realms.m2git.local.preference.Profile;
  *
  * 目录条目的列表。排序（依据 / 方向 / 目录优先）在 {@link #setDir(File)} 里生效，
  * 设置存进 repo_view_state，与仓库列表的排序偏好同一个文件、同一套存法。
+ *
+ * 列目录 + 逐项 stat + 排序跑在 {@link #LISTING_POOL} 上（见 {@link #setDir(File)}），
+ * 只有「清空」和「装结果」两步在主线程。
  */
 public class FilesListAdapter extends ArrayAdapter<File> {
 
@@ -54,8 +63,27 @@ public class FilesListAdapter extends ArrayAdapter<File> {
     private int mSortDir = SORT_DIR_ASC;
     /** 默认 true：保持本 app 一直以来的观感，也和绝大多数文件浏览器一致。 */
     private boolean mDirsFirst = true;
-    /** 本轮预取的排序值；只在按大小 / 时间排序时填充。 */
-    private final Map<File, Long> mSortValues = new HashMap<>();
+
+    /**
+     * 列目录的单线程池。static 共享而不是每实例一个：adapter 随 fragment 重建，
+     * 实例级线程池会留下永不退出的线程；corePoolSize=0 + 30s keepAlive 让它闲下来就自杀，
+     * daemon 保证任何情况下都不拖住进程。单线程 = 同一时刻只有一轮 stat 在打盘。
+     */
+    private static final ThreadPoolExecutor LISTING_POOL = new ThreadPoolExecutor(
+        0, 1, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(),
+        r -> {
+            Thread t = new Thread(r, "mgit-dir-listing");
+            t.setDaemon(true);
+            return t;
+        });
+
+    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
+
+    /**
+     * 每次 {@link #setDir(File)} 递增。后台结果落地前再比对一次，连续点上翻 / 快速改排序时，
+     * 过期那一轮直接丢弃 —— 没有它，慢的那一轮会把上一个目录的内容盖到当前目录上。
+     */
+    private final AtomicInteger mListingToken = new AtomicInteger();
 
     public FilesListAdapter(Context context, FileFilter fileFilter) {
         super(context, 0);
@@ -98,28 +126,42 @@ public class FilesListAdapter extends ArrayAdapter<File> {
 
     /**
      * 重新列目录并按当前设置排序。这是本类唯一的装数据入口：换目录、新建文件/目录、改排序
-     * 设置都走它。改设置时选择「重新列一次盘」而不是原地重排缓存，代价是多一次 listFiles
-     * 和一轮 stat，好处是不用维护「缓存条目 vs 磁盘条目」这对账，而且 pull/checkout 之后
-     * 立刻能看到新的修改时间。
+     * 设置都走它。
+     *
+     * 主线程只留两步：立刻清空旧条目、把排好序的结果装进 adapter。{@code listFiles()} 与
+     * 每条目一次的 stat 挪到 {@link #LISTING_POOL} —— 这两项都随条目数线性增长，而调用点全在
+     * 主线程（{@code FileExplorerActivity} 的 onCreate / onActivityResult / 点「上一层」的
+     * click handler、{@code FilesFragment.setCurrentDir}），以前进大目录就是实打实掉帧。
+     * 换目录的观感不变：清空仍然是同步的。
+     *
+     * 排序三个值在提交后台前拍成局部快照，后台不读可变字段 —— 否则「后台正在按旧设置 stat、
+     * 用户同时改设置」会读出半新半旧的组合。
      */
     public void setDir(File dir) {
         mDir = dir;
         clear();
-        File[] files = null;
-        if (mFileFilter == null) {
-            files = dir.listFiles();
-        } else {
-            files = dir.listFiles(mFileFilter);
-        }
-        // this is to fix a bug
-        if (files == null) {
-            files = new File[0];
-        }
-        prefetchSortValues(files);
-        // Object[] 上的 Arrays.sort 是归并（稳定），名称只剩大小写差异的条目会保持磁盘返回的相对顺序
-        Arrays.sort(files, fileComparator());
-        addAll(files);
         notifyDataSetChanged();
+
+        final int token = mListingToken.incrementAndGet();
+        final int key = mSortKey;
+        final int direction = mSortDir;
+        final boolean dirsFirst = mDirsFirst;
+
+        LISTING_POOL.execute(() -> {
+            List<Entry> entries = readEntries(dir, key);
+            // ArrayList.sort 走 TimSort，是稳定的：名称只差大小写的条目仍保持磁盘返回的相对顺序
+            entries.sort(entryComparator(key, direction, dirsFirst));
+            final File[] files = new File[entries.size()];
+            for (int i = 0; i < entries.size(); i++) {
+                files[i] = entries.get(i).file;
+            }
+            mMainHandler.post(() -> {
+                // 已经有更新的一轮（换目录 / 又改了排序）在跑或跑完，这一轮的结果直接丢
+                if (token != mListingToken.get()) return;
+                addAll(Arrays.asList(files));
+                notifyDataSetChanged();
+            });
+        });
     }
 
     // ---- 排序设置 ----
@@ -151,27 +193,38 @@ public class FilesListAdapter extends ArrayAdapter<File> {
         }
     }
 
-    private Comparator<File> fileComparator() {
-        final int key = mSortKey;
-        final boolean desc = mSortDir == SORT_DIR_DESC;
-        final boolean dirsFirst = mDirsFirst;
+    /** 一轮列举的快照：目录标志与排序值都在后台线程各取一次 syscall，比较器里不再碰文件系统。 */
+    private static final class Entry {
+        final File file;
+        final boolean dir;
+        final long sortValue;
+
+        Entry(File file, boolean dir, long sortValue) {
+            this.file = file;
+            this.dir = dir;
+            this.sortValue = sortValue;
+        }
+    }
+
+    private Comparator<Entry> entryComparator(int key, int direction, boolean dirsFirst) {
+        final boolean desc = direction == SORT_DIR_DESC;
         return (a, b) -> {
             // 目录优先是「分块」而不是排序值，所以不跟着升降序翻转：翻过去就变成了
             // 「文件优先」，那不是勾了目录优先 + 降序的人想要的结果。
-            if (dirsFirst && a.isDirectory() != b.isDirectory()) {
-                return a.isDirectory() ? -1 : 1;
+            if (dirsFirst && a.dir != b.dir) {
+                return a.dir ? -1 : 1;
             }
             if (key == SORT_KEY_NAME) {
-                int cmp = compareByName(a, b);
+                int cmp = compareByName(a.file, b.file);
                 return desc ? -cmp : cmp;
             }
-            long ta = valueOf(a), tb = valueOf(b);
+            long ta = a.sortValue, tb = b.sortValue;
             // 读不到值恒沉底，同样不随升降序翻转：翻转会把整批读不到的条目顶到最前
             if (ta == VALUE_UNKNOWN || tb == VALUE_UNKNOWN) {
-                if (ta == tb) return compareByName(a, b);
+                if (ta == tb) return compareByName(a.file, b.file);
                 return ta == VALUE_UNKNOWN ? 1 : -1;
             }
-            int cmp = ta != tb ? Long.compare(ta, tb) : compareByName(a, b);
+            int cmp = ta != tb ? Long.compare(ta, tb) : compareByName(a.file, b.file);
             return desc ? -cmp : cmp;
         };
     }
@@ -190,19 +243,27 @@ public class FilesListAdapter extends ArrayAdapter<File> {
     }
 
     /**
-     * 排序前一次性把值读出来存着 —— Comparator 里绝不 stat：一次排序要比 O(n log n) 回，
-     * 每个条目预取一次就够。按名称排序时整轮跳过，一个额外 syscall 都不发。
+     * 列目录并把每个条目的「是否目录 + 排序值」一次取齐，全在后台线程。
+     * 排序前先把值读出来存进 {@link Entry} —— 比较器里绝不 stat：一次排序要比 O(n log n) 回，
+     * 每条目预取一次就够。按名称排序时排序值那一趟整个跳过，但 {@code isDirectory()} 仍要取：
+     * 目录优先是默认开的，以前它在比较器里被反复 stat，是这条路径上被漏掉的那笔开销。
      */
-    private void prefetchSortValues(File[] files) {
-        mSortValues.clear();
-        if (mSortKey == SORT_KEY_NAME) return;
-        for (File file : files) {
-            mSortValues.put(file, readSortValue(file));
+    private List<Entry> readEntries(File dir, int key) {
+        File[] files = (mFileFilter == null) ? dir.listFiles() : dir.listFiles(mFileFilter);
+        // this is to fix a bug：目录已被删除 / 无权限时 listFiles 返回 null，按空目录处理
+        if (files == null) {
+            return new ArrayList<>();
         }
+        List<Entry> entries = new ArrayList<>(files.length);
+        for (File file : files) {
+            long value = key == SORT_KEY_NAME ? 0L : readSortValue(file, key);
+            entries.add(new Entry(file, file.isDirectory(), value));
+        }
+        return entries;
     }
 
-    private long readSortValue(File file) {
-        if (mSortKey == SORT_KEY_MODIFIED) {
+    private long readSortValue(File file, int key) {
+        if (key == SORT_KEY_MODIFIED) {
             long modified = file.lastModified();
             // 0 = 读不到（文件已消失 / 无权限 / 老库没这列），交给比较器沉底
             return modified > 0 ? modified : VALUE_UNKNOWN;
@@ -212,11 +273,6 @@ public class FilesListAdapter extends ArrayAdapter<File> {
         // 目录的 length() 是文件系统实现细节（ext4 常见 4096、FUSE 上常是 0），不是内容大小；
         // 算的是「这个条目本身」。目录优先默认开着，所以正常看不到这个情形。
         return file.length();
-    }
-
-    private long valueOf(File file) {
-        Long cached = mSortValues.get(file);
-        return cached == null ? VALUE_UNKNOWN : cached;
     }
 
     // ---- 偏好 ----
