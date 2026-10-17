@@ -29,17 +29,12 @@
 
   window.display = displayFileContent;
 
-  window.setEditable = function() {
-    editor.setOption("readOnly", false);
-  };
-
-  window.save = function() {
-    editor.setOption("readOnly", true);
-    CodeLoader.save(editor.getValue());
-  };
+  // window.setEditable / window.save were removed: the Java-side CodeLoader bridge only
+  // exposes getCode / copy_all / loadCode / getTheme - there was never a save(String)
+  // method to call, and nothing ever invoked setEditable. The viewer is read-only.
 
   window.copy_all = function() {
-    value = editor.getValue();
+    var value = editor.getValue();
     CodeLoader.copy_all(value);
   }
 

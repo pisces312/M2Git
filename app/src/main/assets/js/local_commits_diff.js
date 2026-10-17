@@ -12,7 +12,10 @@
     } else {
       path = CodeLoader.getOldPath(index);
     }
-    var highlighted = hljs.highlight("diff", diff, true);
+    // hljs 11 signature: highlight(code, {language}); the old 7/8-era pack took
+    // (language, code, ignoreIllegals). hljs escapes the untrusted diff text itself -
+    // this output is the page's ONLY .html() sink, keep it that way (see rebuild-js-assets.sh).
+    var highlighted = hljs.highlight(diff, { language: "diff" });
     var diffContent = highlighted.value.split('\n');
     codes = diffContent.slice(4).join('\n');
     diffBlock = $('<div>', {
@@ -29,7 +32,8 @@
     }).text(changeType);
     infoBlock.append(changeTypeBlock);
     infoBlock.append(pathBlock);
-    codeBlock = $('<code>').html(codes);
+    // hljs 11 themes style .hljs (the old unprefixed rainbow.css styled bare `pre code`)
+    codeBlock = $('<code>', { "class": 'hljs' }).html(codes);
     codeBlock = $('<pre>', {
       "class": "diff"
     }).append(codeBlock);

@@ -88,6 +88,10 @@ open class MainApplication : Application() {
             append(' ').append(BuildConfig.GIT_COMMIT_TIME.replace('T', ' ').take(16))
             append('\n').append("JGit ").append(BuildConfig.JGIT_VERSION)
             append('\n').append("jsch ").append(BuildConfig.JSCH_VERSION)
+            // WebView 资产版本（scripts/rebuild-js-assets.sh 的产物台账）
+            append('\n').append("jQuery ").append(BuildConfig.JQUERY_VERSION)
+            append(" / hljs ").append(BuildConfig.HLJS_VERSION)
+            append(" / CodeMirror ").append(BuildConfig.CODEMIRROR_VERSION)
         }
         sharedPreference.edit {
             putString(getString(R.string.preference_key_app_version), version)

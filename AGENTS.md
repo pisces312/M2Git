@@ -19,6 +19,7 @@
 - jgit 7.x 是 Java 17 字节码；minSdk 31 核心库 = OpenJDK 11，真机若遇 `NoSuchMethodError`（如 `Stream.toList`）→ 开 `coreLibraryDesugaring`。
 - jsch 版本只在 build.gradle 顶部 `jschVersion` 一处定义，同时喂给 `implementation`、`resolutionStrategy` 重映射（JGit 的 com.jcraft 传递依赖靠它换成 mwiede fork）和 BuildConfig。
 - 查库最新版本看 `repo1.maven.org/<group>/<artifact>/maven-metadata.xml`；search.maven.org 索引滞后（曾把 7.8.0 显示成 7.3.0）。
+- **WebView 资产（jQuery/hljs/CodeMirror）是脚本重建的产物**：`scripts/rebuild-js-assets.sh`（纯英文）按顶部 pin 的版本从 jsdelivr/cdnjs 下载并 concat 出 `assets/js/codemirror-bundle.min.js`（只含 `CodeGuesser` 可达的 mode）等六个文件，校验和台账在 `scripts/js-assets.sha256`。升级 = 改脚本顶部三个版本变量 + `app/build.gradle` 顶部同名三处（→ BuildConfig → 设置页「关于」）+ 重跑脚本。**禁止手改产物文件**。踩坑：cdnjs 直连会 TLS 抖动（curl exit 35），脚本已带 `--retry-all-errors`；jsdelivr 对 ~400 KB 的 CM 核心按需压缩会 404，核心那份走 cdnjs。
 - 构建溯源（`GIT_COMMIT`/`GIT_COMMIT_TIME`/`GIT_DIRTY`/库版本 → BuildConfig → 设置页「关于」）：在 build.gradle **配置期**经 `providers.exec` 读 git（configuration-cache 把 exec 当输入跟踪，commit 变化自动失效重建，参考 local-dream）。**不要**把 `providers.exec` 放进任务 doLast——执行期引用脚本对象会被 CC 拒绝；AGP 9 也不接受 Provider 形式的 `sourceSets.srcDir`。
 - adb 无线设备序列号含空格/括号（mDNS `_adb-tls-connect._tcp`），`adb -s` 必须加引号；设备随手机休眠从列表消失，安装前先 `adb devices` 确认。模拟器 pixel6 用后台长任务启动。
 

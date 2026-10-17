@@ -46,10 +46,12 @@ public class CommitDiffActivity extends BaseCompatActivity {
     private static final String JS_INF = "CodeLoader";
     private static final String HTML_TMPL = "<!doctype html>"
         + "<head>"
-        + " <script src=\"js/jquery.js\"></script>"
-        + " <script src=\"js/highlight.pack.js\"></script>"
+        // 资产文件名/版本由 scripts/rebuild-js-assets.sh 固定（与 build.gradle 的版本台账同步）；
+        // hljs-rainbow.css 是 hljs 11 的 .hljs-* 前缀主题，配套的 <code class="hljs"> 见 local_commits_diff.js
+        + " <script src=\"js/jquery.slim.min.js\"></script>"
+        + " <script src=\"js/highlight.min.js\"></script>"
         + " <script src=\"js/local_commits_diff.js\"></script>"
-        + " <link type=\"text/css\" rel=\"stylesheet\" href=\"css/rainbow.css\" />"
+        + " <link type=\"text/css\" rel=\"stylesheet\" href=\"css/hljs-rainbow.css\" />"
         + " <link type=\"text/css\" rel=\"stylesheet\" href=\"css/local_commits_diff.css\" />"
         + "</head><body></body>";
     private WebView mDiffContent;
