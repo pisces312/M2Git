@@ -67,6 +67,12 @@
   → 装过上游版的设备**必须先卸载**才能装本仓库包（签名不匹配无法覆盖），release notes 里必须写明。
   上游的 release 附件叫 `app-release.apk`（含着 4 个 ABI），本仓库只出 `arm64-v8a`。
 
+## 仓库列表：用标签，没有分组
+
+- **「组」概念已完全废弃**（2026-10-09 决议，见 `docs/repo-tags-design.md`）：仓库列表平铺展示，
+  条目底部带标签行，用标签 + 筛选代替分组。**不要再引入分组/组头（group header）相关代码或布局**。
+- 曾有实验分支 `feature/repo-list-sort`（分组交互 + 组头样式）基于旧方案，已废弃删除，勿捡回。
+
 ## 资源与多语言
 
 - 用户可见文案必须同时更新 `values/` 与 `values-zh-rCN/`（arrays.xml、strings.xml）。
