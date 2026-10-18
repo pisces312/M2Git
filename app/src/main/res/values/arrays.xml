@@ -67,4 +67,31 @@
         <item>system</item>
     </string-array>
 
+    <!--
+      字号：entries 是显示文本（0 那项要翻译成「跟随默认」），
+      viewer_font_size_values 是 FileViewOptions.fontSizeSp 的存储值，不翻译。
+      viewer_tab_sizes 同时充当 entries 与 entryValues（显示值就是数值）。
+    -->
+    <string-array name="viewer_font_sizes">
+        <item>Default</item>
+        <item>12</item>
+        <item>14</item>
+        <item>16</item>
+        <item>18</item>
+        <item>20</item>
+    </string-array>
+    <string-array name="viewer_font_size_values" translatable="false">
+        <item>0</item>
+        <item>12</item>
+        <item>14</item>
+        <item>16</item>
+        <item>18</item>
+        <item>20</item>
+    </string-array>
+    <string-array name="viewer_tab_sizes" translatable="false">
+        <item>2</item>
+        <item>4</item>
+        <item>8</item>
+    </string-array>
+
 </resources>

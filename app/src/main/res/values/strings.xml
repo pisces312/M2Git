@@ -243,6 +243,26 @@
     <string name="pref_key_markdown_open_mode" translatable="false">markdown_open_mode</string>
     <string name="preference_markdown_open_mode">Markdown file open mode</string>
     <string name="preference_markdown_open_mode_summary">Choose how to open .md files</string>
+    <!--
+      文件内容查看页的显示选项：设置页给全局默认，文件页菜单「显示选项」给本页临时覆盖。
+      字段名与 assets/js/editor.js 的 viewOptions 一致，
+      背景见 docs/file-viewer-display-settings-design.md。pref 键是存储字面量，不进 values-zh-rCN。
+    -->
+    <string name="pref_category_title_file_viewer">File display</string>
+    <string name="preference_viewer_line_numbers">Show line numbers</string>
+    <string name="preference_viewer_line_wrap">Wrap long lines</string>
+    <string name="preference_viewer_match_brackets">Highlight matching brackets</string>
+    <string name="preference_viewer_font_size">Font size</string>
+    <string name="preference_viewer_tab_size">Tab width</string>
+    <string name="action_view_settings">Display options</string>
+    <string name="dialog_view_settings_title">Display options</string>
+    <string name="label_restore_defaults">Restore defaults</string>
+    <string name="label_close">Close</string>
+    <string name="pref_key_viewer_line_numbers" translatable="false">viewer.line_numbers</string>
+    <string name="pref_key_viewer_line_wrap" translatable="false">viewer.line_wrap</string>
+    <string name="pref_key_viewer_match_brackets" translatable="false">viewer.match_brackets</string>
+    <string name="pref_key_viewer_font_size" translatable="false">viewer.font_size</string>
+    <string name="pref_key_viewer_tab_size" translatable="false">viewer.tab_size</string>
     <string name="pref_key_repo_root_location" translatable="false">repo_root_path</string>
     <string name="action_select_root_dir">Select as Root folder</string>
     <string name="action_create_new_dir">Create new folder</string>

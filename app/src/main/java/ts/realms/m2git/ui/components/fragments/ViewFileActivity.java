@@ -17,7 +17,9 @@ import java.io.File;
 
 import ts.realms.m2git.R;
 import ts.realms.m2git.core.models.Repo;
+import ts.realms.m2git.local.preference.FileViewOptions;
 import ts.realms.m2git.ui.components.dialogs.ChooseLanguageDialog;
+import ts.realms.m2git.ui.components.dialogs.FileViewSettingsDialog;
 import ts.realms.m2git.ui.screens.commitDiff.CommitsFragment;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity;
 import ts.realms.m2git.ui.viewModels.BaseFragment;
@@ -101,6 +103,8 @@ public class ViewFileActivity extends BaseCompatActivity {
         } else {
             menu.removeItem(R.id.action_search);
         }
+        // 显示选项只作用于代码页（diff 页不共用 CodeMirror）
+        menu.findItem(R.id.action_view_settings).setVisible(mCurrentTab == FILE_FRAGMENT_INDEX);
         return true;
     }
 
@@ -124,8 +128,26 @@ public class ViewFileActivity extends BaseCompatActivity {
         } else if (item.getItemId() == R.id.action_copy_all) {
             mFileFragment.copyAll();
             return true;
+        } else if (item.getItemId() == R.id.action_view_settings) {
+            showViewSettings();
+            return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void showViewSettings() {
+        FileViewSettingsDialog.show(this, mFileFragment.getViewOptions(),
+            new FileViewSettingsDialog.Listener() {
+                @Override
+                public void onOptionsChanged(FileViewOptions options) {
+                    mFileFragment.setViewOptions(options);
+                }
+
+                @Override
+                public void onRestoreDefaults() {
+                    mFileFragment.restoreDefaultViewOptions();
+                }
+            });
     }
 
     public void setLanguage(String lang) {

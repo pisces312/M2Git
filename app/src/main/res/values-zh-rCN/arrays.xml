@@ -59,4 +59,14 @@
         <item>1</item>
     </string-array>
 
+    <!-- 字号选择器的显示文本；存储值（viewer_font_size_values）不翻译 -->
+    <string-array name="viewer_font_sizes">
+        <item>跟随默认</item>
+        <item>12</item>
+        <item>14</item>
+        <item>16</item>
+        <item>18</item>
+        <item>20</item>
+    </string-array>
+
 </resources>

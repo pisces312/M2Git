@@ -14,14 +14,18 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.ProgressBar;
 
+import androidx.annotation.NonNull;
+
 import org.apache.commons.io.FileUtils;
 import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 
 import timber.log.Timber;
 import ts.realms.m2git.R;
+import ts.realms.m2git.local.preference.FileViewOptions;
 import ts.realms.m2git.local.preference.Profile;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity;
 import ts.realms.m2git.ui.viewModels.BaseFragment;
@@ -33,11 +37,16 @@ import ts.realms.m2git.utils.WebViewJs;
  */
 public class ViewFileFragment extends BaseFragment {
     private static final String JS_INF = "CodeLoader";
+    private static final String TAG_VIEW_OPTIONS = "view_options";
     private WebView mFileContent;
     private WebViewJs mJs;
     private ProgressBar mLoading;
     private File mFile;
     private short mActivityMode = ViewFileActivity.TAG_MODE_NORMAL;
+    /** 全局默认（设置页「文件显示」）：onCreateView 读一次，onResume 再刷新。 */
+    private FileViewOptions mGlobalOptions = new FileViewOptions();
+    /** 本页临时覆盖；null 表示跟随全局默认。不落盘，退出页面即失效。 */
+    private FileViewOptions mOverride;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -46,11 +55,17 @@ public class ViewFileFragment extends BaseFragment {
 
         mFileContent = v.findViewById(R.id.fileContent);
         mLoading = v.findViewById(R.id.loading);
+        mGlobalOptions = FileViewOptions.readGlobal(requireContext().getApplicationContext());
 
         String fileName = null;
         if (savedInstanceState != null) {
             fileName = savedInstanceState.getString(ViewFileActivity.TAG_FILE_NAME);
             mActivityMode = savedInstanceState.getShort(ViewFileActivity.TAG_MODE, ViewFileActivity.TAG_MODE_NORMAL);
+            // 旋转/进程重建把本页的临时覆盖带回来；正常退出页面则随 Fragment 一起消失
+            Serializable savedOptions = savedInstanceState.getSerializable(TAG_VIEW_OPTIONS);
+            if (savedOptions instanceof FileViewOptions) {
+                mOverride = (FileViewOptions) savedOptions;
+            }
         }
         if (fileName == null) {
             fileName = getArguments().getString(ViewFileActivity.TAG_FILE_NAME);
@@ -85,6 +100,28 @@ public class ViewFileFragment extends BaseFragment {
         super.onPause();
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        // 本页没有临时覆盖时，跟随设置页的最新值（用户可能在文件页仍留在返回栈里时改了设置）。
+        // 有覆盖时不读盘也不推送，避免把用户的临时选择冲掉。
+        if (mOverride == null) {
+            FileViewOptions latest = FileViewOptions.readGlobal(requireContext().getApplicationContext());
+            if (!latest.sameAs(mGlobalOptions)) {
+                mGlobalOptions = latest;
+                pushViewOptions();
+            }
+        }
+    }
+
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (mOverride != null) {
+            outState.putSerializable(TAG_VIEW_OPTIONS, mOverride);
+        }
+    }
+
     private void loadFileContent() {
         mFileContent.loadUrl("file:///android_asset/editor.html");
     }
@@ -95,6 +132,39 @@ public class ViewFileFragment extends BaseFragment {
 
     public void copyAll() {
         mJs.eval("copy_all();");
+    }
+
+    /** 当前生效的显示选项（有临时覆盖时是覆盖值，否则是全局默认），返回副本。 */
+    public FileViewOptions getViewOptions() {
+        return currentOptions().copy();
+    }
+
+    /** 全局默认值，供「恢复默认」后回填弹窗控件与判断是否与全局一致。 */
+    public FileViewOptions getGlobalViewOptions() {
+        return mGlobalOptions.copy();
+    }
+
+    /** 本页临时覆盖：只改本页，不写偏好。 */
+    public void setViewOptions(FileViewOptions options) {
+        mOverride = options.copy();
+        pushViewOptions();
+    }
+
+    /** 丢弃本页覆盖，回到全局默认。 */
+    public void restoreDefaultViewOptions() {
+        mOverride = null;
+        mGlobalOptions = FileViewOptions.readGlobal(requireContext().getApplicationContext());
+        pushViewOptions();
+    }
+
+    private FileViewOptions currentOptions() {
+        return mOverride != null ? mOverride : mGlobalOptions;
+    }
+
+    private void pushViewOptions() {
+        if (mJs != null) {
+            mJs.eval("applyViewOptions(" + currentOptions().toJson() + ");");
+        }
     }
 
     public void setLanguage(String lang) {
@@ -155,6 +225,15 @@ public class ViewFileFragment extends BaseFragment {
         @JavascriptInterface
         public String getTheme() {
             return Profile.getCodeMirrorTheme(getActivity());
+        }
+
+        /**
+         * 页面初始化时主动拉取。刻意只读字段、不碰偏好文件：本方法由 WebView 的 JS 线程调用，
+         * 而全局值已在 onCreateView / onResume 读过，这里再做磁盘 IO 没有必要。
+         */
+        @JavascriptInterface
+        public String getViewOptions() {
+            return currentOptions().toJson();
         }
 
         private void display() {

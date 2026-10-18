@@ -214,6 +214,17 @@
     <string name="pref_category_title_general">常规</string>
     <string name="preference_markdown_open_mode">Markdown 文件打开方式</string>
     <string name="preference_markdown_open_mode_summary">选择打开 .md 文件的方式</string>
+    <!-- 与 values 的「文件显示」组对应；pref 键是存储字面量，不翻译 -->
+    <string name="pref_category_title_file_viewer">文件显示</string>
+    <string name="preference_viewer_line_numbers">显示行号</string>
+    <string name="preference_viewer_line_wrap">自动换行</string>
+    <string name="preference_viewer_match_brackets">高亮匹配括号</string>
+    <string name="preference_viewer_font_size">字号</string>
+    <string name="preference_viewer_tab_size">Tab 宽度</string>
+    <string name="action_view_settings">显示选项</string>
+    <string name="dialog_view_settings_title">显示选项</string>
+    <string name="label_restore_defaults">恢复默认</string>
+    <string name="label_close">关闭</string>
     <string name="action_select_root_dir">选择一个文件夹作为仓库存储目录</string>
     <string name="action_create_new_dir">新建文件夹</string>
     <string name="pref_category_title_git_profile">Git配置</string>
