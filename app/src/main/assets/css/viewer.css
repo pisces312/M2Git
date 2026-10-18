@@ -1,0 +1,49 @@
+/* M2Git 自有样式（不属于 rebuild-js-assets.sh 的下载产物，改动不会被脚本覆盖）。 */
+
+/* 滚动位置指示条。
+ * Android WebView 的滚动条是 overlay 风格：既不会常显，也无法拖动；
+ * Blink 在移动端还会忽略 ::-webkit-scrollbar 自定义。所以由 editor.js 自绘两条指示条，
+ * 位置由 CodeMirror 的 getScrollInfo() 推算 —— 和横滑边界上报同源，不会与真实位置漂移。
+ * pointer-events: none：只作视觉指示，不参与触摸手势，因此不影响 ViewPager 翻页。 */
+.CodeMirror .cm-scrollbar {
+  position: absolute;
+  z-index: 10;
+  display: none;
+  pointer-events: none;
+  border-radius: 2px;
+  /* 中性灰，在 default（白底）与 midnight（深蓝底）下都能看见 */
+  background: rgba(120, 120, 120, 0.14);
+}
+
+.CodeMirror .cm-scrollbar-v {
+  top: 0;
+  width: 4px;
+}
+
+.CodeMirror .cm-scrollbar-h {
+  height: 4px;
+}
+
+.CodeMirror .cm-scrollbar-thumb {
+  position: absolute;
+  border-radius: 2px;
+  background: rgba(120, 120, 120, 0.62);
+}
+
+.CodeMirror .cm-scrollbar-v .cm-scrollbar-thumb {
+  left: 0;
+  right: 0;
+}
+
+.CodeMirror .cm-scrollbar-h .cm-scrollbar-thumb {
+  top: 0;
+  bottom: 0;
+}
+
+.cm-s-midnight .cm-scrollbar {
+  background: rgba(209, 237, 255, 0.10);
+}
+
+.cm-s-midnight .cm-scrollbar-thumb {
+  background: rgba(209, 237, 255, 0.40);
+}

@@ -124,17 +124,61 @@ DOM 完好（51 行、文字、颜色、transform 都正常），渲染器自己
 |---|---|---|
 | 1 | `ui/components/views/EdgeAwareWebView.java` | **新增**：覆盖 `canScrollHorizontally()`，两个 volatile 边界字段 |
 | 2 | `res/layout/fragment_view_file.xml` | `<WebView>` → `<EdgeAwareWebView>` |
-| 3 | `assets/js/editor.js` | `reportScrollEdges`：scroll / applyOptions / display / setLang 时上报边界（去重） |
+| 3 | `assets/js/editor.js` | `reportScrollEdges`：scroll / applyOptions / display / setLang 时上报边界（去重）；第 8 节的指示条 |
 | 4 | `ui/components/fragments/ViewFileFragment.java` | 字段类型换成 `EdgeAwareWebView`；`onScrollEdges` 桥改为写 WebView |
+| 5 | `assets/css/viewer.css` | **新增**：指示条样式（M2Git 自有，不会被 `rebuild-js-assets.sh` 覆盖） |
+| 6 | `assets/editor.html` | 引入 `css/viewer.css` |
 
-**不动**：`activity_view_file.xml`、CodeMirror 资产、`js-assets.sha256`（零资产变更）。
+**不动**：`activity_view_file.xml`、`codemirror.css` / `codemirror-bundle.min.js`、`js-assets.sha256`
+（CodeMirror 的下载产物一个字节没改，`viewer.css` 是新增的自有文件，不在校验清单里）。
 `ViewFileActivity.switchPage()` 已删除（旧方案用它自己翻页，现在不需要）。
 
 ---
 
-## 8. 未做 / 可选
+## 8. 滚动位置指示条（自绘）
 
-1. **可见的横向滚动条**：目前横向范围有、但看不见条（Android WebView 的溢出滚动条是触摸时闪现的浮层）。
-   要常显得在 `codemirror.css` 里给 `::-webkit-scrollbar` 设宽度和颜色，属纯视觉改动，与手势无关。
+**为什么不用原生滚动条**：Android WebView 的滚动条是 overlay 风格 —— 非 root scroller 上既不常显也拖不动；
+Blink 在移动端还会忽略 `::-webkit-scrollbar` 的自定义样式（Chromium 只在桌面平台支持它）。
+CodeMirror 输出的 `.CodeMirror-vscrollbar` / `.CodeMirror-hscrollbar` 也一样：它们本身是真正的滚动容器，
+但里面画的仍是浏览器原生滚动条，在 WebView 里同样看不见。
+
+**实现**：`editor.js` 往 wrapper 里挂两个 `div.cm-scrollbar`（CSS 在新增的 `assets/css/viewer.css`），
+thumb 的尺寸和位置全部由 `getScrollInfo()` 换算：
+
+| 量 | 公式 |
+|---|---|
+| 是否显示竖向条 | `height - clientHeight > 1`（横向同理用 `width - clientWidth`） |
+| thumb 长度 | `track * visible / content`，下限 20px（超大文件时按真实比例会不到 5px，看不见） |
+| thumb 位移 | `scroll / maxScroll * (track - thumb)` |
+| 横向轨道起点 | gutter 宽度；`visible` 与 `content` 也各自扣掉 gutter（行号区固定不横滚） |
+
+**为什么位置一定对**：和 `reportScrollEdges` 读的是同一个 `getScrollInfo()`，也在同一个 `scroll` 回调里读，
+所以「条上显示的位置」与「ViewPager 判定用的边界」永远来自同一帧量算，不可能一个说滚到头了、另一个还没。
+
+**为什么不影响手势**：CSS 里 `pointer-events: none`。两条只是画上去的，不接收触摸，
+`canScrollHorizontally()` / ViewPager 的判定路径一个字节都没变，也没有新增任何桥方法。
+
+**实测**（emulator-5554，`Cargo.lock`，关换行，CDP 直接量 DOM）：
+
+| 检查 | 结果 |
+|---|---|
+| 横向 `left=632 / maxLeft=897` | thumb x=228，理论 228.5（轨道 x 46..410）✅ |
+| 横向滚到最右 | thumb 右边缘 = 轨道右边缘 = 410 ✅ |
+| 竖向 `top=44000 / height=88484` | thumb y=353，理论 352.9 ✅ |
+| 开换行（无横向溢出） | 横向条 `display:none` ✅ |
+| 有横向条时 | 竖向轨道自动从 732 缩到 724，右下角两条不重叠 ✅ |
+| 关换行后左滑 / 到边界再左滑 | 与第 5 节一致：先滚内容、到边界后翻页 ✅ |
+| 从 Commits 滑回 File | 滚动位置保持（left=896/top=2000），thumb 仍在最右 ✅ |
+
+**已知取舍**：横向条会盖住最后一行文字的底部 4px（半透明）。要做到完全不遮挡得给 scroller 加
+`padding-bottom`，而那会改掉 CodeMirror 的滚动量算（`barHeight` 自己维护），代价远大于遮挡，不做。
+
+---
+
+## 9. 未做 / 可选
+
+1. **滚动条可拖动**：现在是纯指示条（`pointer-events: none`）。做成可拖就要在手势里抢 `touchmove`，
+   横向拖动还会和 ViewPager 争所有权，收益（手机上拖 4px 宽的条）低于风险，暂时不做。
 2. **同一手势内接力翻页**：放弃（见第 4 节）。
-3. **diff 页**：`CommitDiffActivity` 是独立 Activity，不在 ViewPager 里，不存在此问题。
+3. **diff 页**：`CommitDiffActivity` 是独立 Activity，不在 ViewPager 里，不存在此问题；
+   它也没引入 `viewer.css`，需要的话单独接。
