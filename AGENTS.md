@@ -73,32 +73,15 @@
   条目底部带标签行，用标签 + 筛选代替分组。**不要再引入分组/组头（group header）相关代码或布局**。
 - 曾有实验分支 `feature/repo-list-sort`（分组交互 + 组头样式）基于旧方案，已废弃删除，勿捡回。
 
-## 搜索交互：不要改造 framework SearchView 内部（2026-10-18 决议）
+## 搜索交互：不要改造 framework SearchView（2026-10-18 决议）
 
-- **现状即取舍，别当 bug 修**：`RepoListActivity.configSearchAction()` 用 `menu/main.xml` 里的
-  `app:actionViewClass="android.widget.SearchView"` + `setIconifiedByDefault(true)`；点工具栏放大镜展开后
-  **要再点一次输入框**才能打字。这个「两次点击」是已知行为。
-- 2026-10-18 做过一次完整改造（展开时抢焦点 + 去掉输入框里的第二个放大镜），最后**整体撤回**。原因：
-  1. **展开回调里抢不到焦点，是框架时序决定的**：`MenuItemImpl.expandActionView()` 先回调
-     `onMenuItemActionExpand()`，之后才调 `expandItemActionView()`；回调内 actionView 还是 GONE、未 attach，
-     `getWindowToken() == null` → `requestFocus()` / `showSoftInput()` 静默失败。
-     `View.post()` 也不够（只保证排在本轮输入事件之后，不保证 measure/layout 已完成）；
-     确定性写法只有 `OneShotPreDrawListener`（androidx.core，layout 完成、绘制前回调）。
-  2. **第二个放大镜不是独立 View，没法「隐藏」**：它是 hint 上的 `ImageSpan`。framework `SearchView.getDecoratedHint()`
-     在 `mIconifiedByDefault && mSearchHintIcon != null` 时把图标塞进 hint（`SpannableStringBuilder("   ")` + `ImageSpan`）。
-     唯一能抹掉它的办法是 `setIconifiedByDefault(false)`，但那会连带改掉 collapse / 返回键语义；且
-     `updateViewsVisibility()` 之后又会把 `search_mag_icon` 改回 VISIBLE，还得 `setImageDrawable(null)`
-     让它自己判 GONE —— 全程在改框架内部状态，换 SDK 版本就可能失灵。
-  3. **内部 id 取不到，只能字符串反查**：`search_button` / `search_mag_icon` / `search_badge` / `search_src_text`
-     都是 `com.android.internal.R.id`，`Resources.getIdentifier(name, "id", "android")` 运行时返回 0；
-     只能遍历子树用 `getResourceEntryName(view.getId())` 匹配名字。同样脆。
-- **要做「点一下就能输入」，就换成页面自己的搜索条**：参考**仓库详情页**的做法（commit 86fe19b，
-  `activity_repo_detail_content.xml` 的 `searchBar`：工具栏下方一整行，单一 `EditText` + 显隐控制，
-  焦点 / 软键盘 / 提示词全自控，不碰 framework 一行）。仓库列表若要做，就在 `activity_main.xml` 里加同样的
-  独立搜索行，把 `action_search` 改成切换该行显隐，并同步移除 `main.xml` 上的 `actionViewClass`。
-  **动手前先跟用户确认走哪条路，不要先写代码。**
-- Android 13+ 重写 `onBackPressed()` 无效（走 `OnBackPressedDispatcher`）；要拦返回键用
-  `getOnBackPressedDispatcher().addCallback(...)`。
+- **不要**在工具栏 framework `SearchView` 上做「展开即输入 / 去掉第二个放大镜」这类改造。
+  现状（`RepoListActivity.configSearchAction()` + `menu/main.xml`，`iconifiedByDefault = true`）
+  点一次后还要再点输入框才能打字，**是已知取舍，不是 bug**。
+- **正确做法**：要一步直达输入就换成页面自建搜索条（`EditText` + 显隐），照抄仓库详情页 `searchBar`
+  的做法（commit 86fe19b）；**动手前先跟用户确认**，不要先写代码。
+- **完整原因、框架源码证据（行号）、替代方案与实施要点**见 `docs/searchview-refactor-investigation.md`。
+- Android 13+ 重写 `onBackPressed()` 无效，拦返回键用 `getOnBackPressedDispatcher().addCallback(...)`。
 
 ## 资源与多语言
 
