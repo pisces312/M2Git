@@ -2,11 +2,63 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!--
+      全宽搜索条：点工具栏「搜索」滑出，独占一行（RelativeLayout 里 GONE 的锚点视为
+      零尺寸贴顶，收起时 ViewPager 自动回到顶部，不用改 visibility 连锁）。背景与
+      PagerTitleStrip 同色（pager_title_strip_background），两主题都搭。输入即过滤
+      当前 tab：文件页 = 当前目录文件名，提交页 = 提交历史；右侧按钮进
+      「在仓库中搜索…」条件对话框，× 关闭并清空。设计见 docs/file-search-design.md。
+    -->
+    <LinearLayout
+        android:id="@+id/searchBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:background="?pager_title_strip_background"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <EditText
+            android:id="@+id/searchBarInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="@string/search_hint_filter_files"
+            android:imeOptions="actionSearch"
+            android:inputType="text"
+            android:minHeight="@dimen/general_min_height"
+            android:padding="@dimen/general_padding"
+            android:singleLine="true"
+            android:textColor="#ffffff"
+            android:textColorHint="#80ffffff" />
+
+        <ImageButton
+            android:id="@+id/searchBarRepo"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="@string/action_search_repo"
+            android:padding="@dimen/general_padding"
+            android:src="@drawable/ic_search_repo" />
+
+        <ImageButton
+            android:id="@+id/searchBarClose"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="@string/label_cancel"
+            android:padding="@dimen/general_padding"
+            android:src="@drawable/ic_action_cancel"
+            android:tint="#ffffff" />
+    </LinearLayout>
+
     <androidx.viewpager.widget.ViewPager
         android:id="@+id/pager"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@+id/commitName">
+        android:layout_above="@+id/commitName"
+        android:layout_below="@+id/searchBar">
 
         <androidx.viewpager.widget.PagerTitleStrip
             android:id="@+id/pager_title_strip"

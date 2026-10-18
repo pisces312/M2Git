@@ -13,17 +13,20 @@
 
 ## 入口结构
 
-复用已有的 `action_search`（`res/menu/repo_detail.xml`，SearchView，原先仅 commits 页可见），
-扩展为 **文件页 + 提交页均可见**：
+工具栏与搜索条分工（2026-10-18 改版，起因：SearchView 折叠展开和其他图标挤同一条工具栏，
+输入框只剩两百多像素、标题也被吃光）：
 
-- **文件页**：SearchView 输入即实时过滤**当前目录**的条目（轻量，无递归、无 I/O）。
-- **提交页**：原有提交历史过滤，行为不变。
-- 新增溢出菜单项 `action_search_repo`（「在仓库中搜索…」，`showAsAction="never"`）：
-  弹出条件对话框（关键词 + 模式单选「文件名 / 文件内容」+ 大小写勾选 + 类型 glob 输入），
-  确认后启动独立的 `SearchResultsActivity` 做**递归搜索**。
-  加上这一项后溢出菜单重新出现三点（原先全部 always、溢出为空）。
+- **工具栏常驻图标只留高频**：排序（文件页）、搜索，其余进溢出菜单（编辑标签、开关抽屉）。
+  仓库名标题恢复完整空间。
+- **点「搜索」滑出全宽搜索条**（`activity_repo_detail_content.xml` 的 `searchBar`，
+  独占工具栏下方一行）：输入即过滤**当前 tab** —— 文件页 = 当前目录条目、提交页 = 提交
+  历史；提示词随 tab 切换；返回键先收搜索条。
+- 搜索条右侧两个按钮：「在仓库中搜索…」（弹条件对话框 → `SearchResultsActivity`
+  **递归搜索**）和「×」（清空并收起）。对话框预填搜索条已输入的词，两个入口串成一条
+  路径：先过滤本目录，不够再全仓库搜。
+- 状态页没有过滤语义：搜索入口隐藏，切到状态页时搜索条自动收起。
 
-为什么不把递归搜索也塞进文件页实时过滤：递归 + 读文件是重操作，和「当前目录列表」
+为什么不把递归搜索也塞进搜索条的实时过滤：递归 + 读文件是重操作，和「当前目录列表」
 语义不符，且结果需要展示相对路径 / 行号，列表项形态不同。
 
 ## 一、当前目录实时过滤
@@ -41,9 +44,9 @@
 - 大小写：读 `repo_view_state` 的 `pref_key_search_case_sensitive`（与递归搜索对话框的
   勾选同一份设置，行为一致）。
 
-`FilesFragment.setFilter` 转发；`RepoDetailActivity.TabItemPagerAdapter` 的
-`onQueryTextSubmit/Change` 增加 `FILES_FRAGMENT_INDEX` 分支，
-`onMenuItemActionCollapse` 在文件页清空过滤。
+`FilesFragment.setFilter` 转发；`RepoDetailActivity` 的搜索条 `TextWatcher`
+调 `applyFilter` 按当前 tab 转发（文件页 / 提交页），切 tab 时把同一过滤词套用到新 tab，
+状态页自动收起搜索条并清空过滤。
 
 ## 二、递归搜索（SearchResultsActivity）
 
@@ -88,18 +91,19 @@ RepoDetailActivity），由详情页 `startActivityForResult` 启动，extras：
 
 | 文件 | 改动 |
 |---|---|
-| `res/menu/repo_detail.xml` | 新增 `action_search_repo`（never）；`action_search` 注释更新 |
-| `RepoDetailActivity.java` | 搜索可见性扩展到文件页、query 路由、搜索条件对话框、结果回传跳目录 |
+| `res/menu/repo_detail.xml` | 常驻只留 排序/搜索，编辑标签与开关抽屉进溢出 |
+| `RepoDetailActivity.java` | 全宽搜索条（show/hide/转发过滤/返回键收起）、搜索条件对话框、结果回传跳目录 |
 | `FilesListAdapter.java` / `FilesFragment.java` | `setFilter` + 未过滤快照 |
 | `SearchResultsActivity.java`（新） | 递归搜索与结果展示 |
+| `layout/activity_repo_detail_content.xml` | 顶部全宽搜索条 |
 | `layout/activity_search_results.xml` / `layout/list_item_search_result.xml`（新） | 结果页与结果项 |
 | `AndroidManifest.xml` | 注册 `SearchResultsActivity` |
 | `strings.xml` ×2 | 新文案 |
 
 ## 已知边界（有意为之）
 
-- 文件页搜索框跨 tab 保持展开时，关键词不会自动套用到新 tab 的过滤器（沿用原 commits
-  页既有行为）；收起即清空。
+- 搜索条跨 tab 保留过滤词并套用到新 tab（文件页 ↔ 提交页）；状态页收起搜索条。
+  两侧过滤语义不同（名称 contains vs 提交历史），同一个词换个 tab 结果不同是预期行为。
 - 内容搜索不建索引，大仓库首次搜索耗时与文件总量成正比；1 MB 上限与 500 条上限是
   防爆闸，不是精确性限制。
 - 非 UTF-8 文本按 UTF-8 解码读行，乱码行仍可能命中 ASCII 关键词，不做编码探测。

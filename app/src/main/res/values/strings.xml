@@ -146,6 +146,8 @@
     <string name="action_search_repo">Search in repository…</string>
     <string name="dialog_search_repo_title">Search in repository</string>
     <string name="search_hint_keyword">Keyword</string>
+    <string name="search_hint_filter_files">Filter file names</string>
+    <string name="search_hint_filter_commits">Filter commit history</string>
     <string name="search_mode_name">File name</string>
     <string name="search_mode_content">File content</string>
     <string name="search_case_sensitive">Case sensitive</string>

@@ -2,22 +2,24 @@ package ts.realms.m2git.ui.screens.repoDetail;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
-import android.widget.SearchView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.ActionBar;
-import androidx.core.view.MenuItemCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentPagerAdapter;
@@ -62,6 +64,8 @@ public class RepoDetailActivity extends BaseCompatActivity {
     private ImageView mCommitType;
     private MenuItem mSearchItem;
     private MenuItem mSortItem;
+    private View mSearchBar;
+    private EditText mSearchBarInput;
     private Repo mRepo;
     private View mPullProgressContainer;
     private ProgressBar mPullProgressBar;
@@ -119,6 +123,7 @@ public class RepoDetailActivity extends BaseCompatActivity {
         createFragments();
         setupViewPager();
         setupPullProgressView();
+        setupSearchBar();
         setupDrawer();
         mCommitNameButton = findViewById(R.id.commitName);
         mCommitType = findViewById(R.id.commitType);
@@ -151,6 +156,80 @@ public class RepoDetailActivity extends BaseCompatActivity {
         mTabItemPagerAdapter = new TabItemPagerAdapter(getSupportFragmentManager());
         mViewPager.setAdapter(mTabItemPagerAdapter);
         mViewPager.setOnPageChangeListener(mTabItemPagerAdapter);
+    }
+
+    /**
+     * 工具栏下方的全宽搜索条（activity_repo_detail_content.xml 的 searchBar）。
+     * 曾经这里用的是 SearchView 折叠展开 —— 但它和排序/标签/抽屉图标挤同一条工具栏，
+     * 输入框只剩两百多像素，标题也被吃光。现在搜索条独占一行，工具栏只留高频图标。
+     *
+     * 输入即过滤当前 tab（文件页 = 当前目录文件名，{@link FilesFragment#setFilter}；
+     * 提交页 = 提交历史，{@link CommitsFragment#setFilter}），右侧按钮弹
+     * {@link #showSearchRepoDialog()} 做全仓库递归搜索。设计见 docs/file-search-design.md。
+     */
+    private void setupSearchBar() {
+        mSearchBar = findViewById(R.id.searchBar);
+        mSearchBarInput = findViewById(R.id.searchBarInput);
+        mSearchBarInput.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                applyFilter(s.toString());
+            }
+        });
+        findViewById(R.id.searchBarRepo).setOnClickListener(view -> showSearchRepoDialog());
+        findViewById(R.id.searchBarClose).setOnClickListener(view -> hideSearchBar());
+    }
+
+    private void showSearchBar() {
+        mSearchBar.setVisibility(View.VISIBLE);
+        updateSearchBarHint();
+        mSearchBarInput.requestFocus();
+        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.showSoftInput(mSearchBarInput, InputMethodManager.SHOW_IMPLICIT);
+        }
+    }
+
+    private void hideSearchBar() {
+        // 先清词（触发 applyFilter(null) 恢复完整列表），再收条
+        mSearchBarInput.setText("");
+        mSearchBar.setVisibility(View.GONE);
+        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(mSearchBarInput.getWindowToken(), 0);
+        }
+    }
+
+    private boolean isSearchBarVisible() {
+        return mSearchBar != null && mSearchBar.getVisibility() == View.VISIBLE;
+    }
+
+    /** 搜索条的输入转发给当前 tab 的过滤器；状态页没有过滤语义，忽略。 */
+    private void applyFilter(String query) {
+        if (mViewPager == null) return;
+        switch (mViewPager.getCurrentItem()) {
+            case FILES_FRAGMENT_INDEX:
+                mFilesFragment.setFilter(query);
+                break;
+            case COMMITS_FRAGMENT_INDEX:
+                mCommitsFragment.setFilter(query);
+                break;
+        }
+    }
+
+    /** 搜索条的提示词跟 tab 走：文件页过滤文件名，提交页过滤提交历史。 */
+    private void updateSearchBarHint() {
+        if (mSearchBarInput == null || mViewPager == null) return;
+        mSearchBarInput.setHint(mViewPager.getCurrentItem() == COMMITS_FRAGMENT_INDEX
+            ? R.string.search_hint_filter_commits : R.string.search_hint_filter_files);
     }
 
     private void setupDrawer() {
@@ -239,15 +318,9 @@ public class RepoDetailActivity extends BaseCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.repo_detail, menu);
-        mSearchItem = menu.findItem(R.id.action_search);
-        MenuItemCompat.setOnActionExpandListener(mSearchItem, mTabItemPagerAdapter);
         // 搜索对文件页（当前目录名称过滤）与提交页（提交历史过滤）都有意义，状态页没有
+        mSearchItem = menu.findItem(R.id.action_search);
         mSearchItem.setVisible(mSelectedTab != STATUS_FRAGMENT_INDEX);
-        SearchView searchView = (SearchView) mSearchItem.getActionView();
-        if (searchView != null) {
-            searchView.setIconifiedByDefault(true);
-            searchView.setOnQueryTextListener(mTabItemPagerAdapter);
-        }
         // 排序只对文件页有意义。mSelectedTab 的初值就是 FILES_FRAGMENT_INDEX(0)，
         // 所以首次 inflate 时不必额外读 pager.getCurrentItem()。
         mSortItem = menu.findItem(R.id.action_sort_files);
@@ -259,6 +332,12 @@ public class RepoDetailActivity extends BaseCompatActivity {
     public boolean onKeyUp(int keyCode, KeyEvent event) {
         switch (keyCode) {
             case KeyEvent.KEYCODE_BACK:
+                // 搜索条开着时返回先收它，而不是退出详情页
+                if (isSearchBarVisible()) {
+                    hideSearchBar();
+                    return true;
+                }
+                // fall through：与 DEL 走同一条「返回/向上」路径
             case KeyEvent.KEYCODE_DEL:
                 int position = mViewPager.getCurrentItem();
                 OnBackClickListener onBackClickListener = mTabItemPagerAdapter
@@ -312,13 +391,13 @@ public class RepoDetailActivity extends BaseCompatActivity {
         } else if (item.getItemId() == R.id.action_edit_tags) {
             showEditTagsDialog();
             return true;
+        } else if (item.getItemId() == R.id.action_search) {
+            showSearchBar();
+            return true;
         } else if (item.getItemId() == R.id.action_sort_files) {
             if (mFilesFragment != null) {
                 mFilesFragment.showSortDialog();
             }
-            return true;
-        } else if (item.getItemId() == R.id.action_search_repo) {
-            showSearchRepoDialog();
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -328,7 +407,7 @@ public class RepoDetailActivity extends BaseCompatActivity {
      * 「在仓库中搜索…」的条件对话框：关键词 + 模式（文件名 / 文件内容）+ 大小写勾选 +
      * 类型 glob 过滤。确认后启动 {@link SearchResultsActivity} 做递归搜索；点目录结果
      * 由 onActivityResult(SEARCH_REPO_ACTIVITY) 接回并跳目录。设计见
-     * docs/file-search-design.md。大小写勾选存 repo_view_state，文件页 SearchView 的
+     * docs/file-search-design.md。大小写勾选存 repo_view_state，搜索条的
      * 当前目录过滤读的是同一份（{@link FilesListAdapter}）。
      */
     private void showSearchRepoDialog() {
@@ -339,6 +418,11 @@ public class RepoDetailActivity extends BaseCompatActivity {
         final android.widget.EditText keywordInput = new android.widget.EditText(this);
         keywordInput.setHint(R.string.search_hint_keyword);
         keywordInput.setSingleLine(true);
+        // 预填搜索条里已输入的词：两个搜索入口串成一条路径（先过滤本目录，不够再全仓库搜）
+        if (mSearchBarInput != null && mSearchBarInput.getText().length() > 0) {
+            keywordInput.setText(mSearchBarInput.getText());
+            keywordInput.setSelection(keywordInput.getText().length());
+        }
 
         final android.widget.RadioGroup modeGroup = new android.widget.RadioGroup(this);
         modeGroup.setOrientation(android.widget.RadioGroup.VERTICAL);
@@ -479,7 +563,7 @@ public class RepoDetailActivity extends BaseCompatActivity {
 
     }
 
-    class TabItemPagerAdapter extends FragmentPagerAdapter implements ViewPager.OnPageChangeListener, SearchView.OnQueryTextListener, MenuItemCompat.OnActionExpandListener {
+    class TabItemPagerAdapter extends FragmentPagerAdapter implements ViewPager.OnPageChangeListener {
 
         private final int[] PAGE_TITLE = {R.string.tab_files_label,
             R.string.tab_commits_label, R.string.tab_status_label};
@@ -531,55 +615,21 @@ public class RepoDetailActivity extends BaseCompatActivity {
             if (mSortItem != null) {
                 mSortItem.setVisible(position == FILES_FRAGMENT_INDEX);
             }
+            // 搜索条跟着 tab 走：提示词换一套，过滤词套用到新 tab；状态页没有过滤
+            // 语义，直接收起（搜索图标本来也在这一页隐藏）。
+            if (position == STATUS_FRAGMENT_INDEX) {
+                if (isSearchBarVisible()) {
+                    hideSearchBar();
+                }
+            } else if (isSearchBarVisible()) {
+                updateSearchBarHint();
+                applyFilter(mSearchBarInput.getText().toString());
+            }
         }
 
         @Override
         public void onPageScrollStateChanged(int state) {
 
-        }
-
-        @Override
-        public boolean onQueryTextSubmit(String query) {
-            switch (mViewPager.getCurrentItem()) {
-                case FILES_FRAGMENT_INDEX:
-                    mFilesFragment.setFilter(query);
-                    break;
-                case COMMITS_FRAGMENT_INDEX:
-                    mCommitsFragment.setFilter(query);
-                    break;
-            }
-            return true;
-        }
-
-        @Override
-        public boolean onQueryTextChange(String query) {
-            switch (mViewPager.getCurrentItem()) {
-                case FILES_FRAGMENT_INDEX:
-                    mFilesFragment.setFilter(query);
-                    break;
-                case COMMITS_FRAGMENT_INDEX:
-                    mCommitsFragment.setFilter(query);
-                    break;
-            }
-            return true;
-        }
-
-        @Override
-        public boolean onMenuItemActionExpand(MenuItem menuItem) {
-            return true;
-        }
-
-        @Override
-        public boolean onMenuItemActionCollapse(MenuItem menuItem) {
-            switch (mViewPager.getCurrentItem()) {
-                case FILES_FRAGMENT_INDEX:
-                    mFilesFragment.setFilter(null);
-                    break;
-                case COMMITS_FRAGMENT_INDEX:
-                    mCommitsFragment.setFilter(null);
-                    break;
-            }
-            return true;
         }
 
     }

@@ -123,6 +123,8 @@
     <string name="action_search_repo">在仓库中搜索…</string>
     <string name="dialog_search_repo_title">在仓库中搜索</string>
     <string name="search_hint_keyword">关键词</string>
+    <string name="search_hint_filter_files">过滤文件名</string>
+    <string name="search_hint_filter_commits">过滤提交历史</string>
     <string name="search_mode_name">文件名</string>
     <string name="search_mode_content">文件内容</string>
     <string name="search_case_sensitive">区分大小写</string>
