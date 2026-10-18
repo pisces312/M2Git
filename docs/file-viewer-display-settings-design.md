@@ -3,6 +3,8 @@
 状态：已实现（P0，2026-10-18）
 日期：2026-10-18
 范围：文件内容查看页（`ViewFileActivity` / `ViewFileFragment` → `assets/editor.html`）
+已知副作用：关闭「自动换行」后，横向拖动会被外层 ViewPager 抢走（内容不滚、直接切到「Commits」）。
+根因与修复方案见 `docs/file-viewer-swipe-conflict-design.md`（2026-10-18 提出，待评审）。
 
 ---
 

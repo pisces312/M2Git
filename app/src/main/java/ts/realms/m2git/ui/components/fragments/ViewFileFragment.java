@@ -27,6 +27,7 @@ import timber.log.Timber;
 import ts.realms.m2git.R;
 import ts.realms.m2git.local.preference.FileViewOptions;
 import ts.realms.m2git.local.preference.Profile;
+import ts.realms.m2git.ui.components.views.EdgeAwareWebView;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity;
 import ts.realms.m2git.ui.viewModels.BaseFragment;
 import ts.realms.m2git.utils.CodeGuesser;
@@ -38,7 +39,12 @@ import ts.realms.m2git.utils.WebViewJs;
 public class ViewFileFragment extends BaseFragment {
     private static final String JS_INF = "CodeLoader";
     private static final String TAG_VIEW_OPTIONS = "view_options";
-    private WebView mFileContent;
+    /**
+     * 用 EdgeAwareWebView 而不是裸 WebView：横向手势该滚内容还是该翻页，
+     * 由它的 canScrollHorizontally() 如实回答，交给 ViewPager 原生判定。
+     * 详见 docs/file-viewer-swipe-conflict-design.md。
+     */
+    private EdgeAwareWebView mFileContent;
     private WebViewJs mJs;
     private ProgressBar mLoading;
     private File mFile;
@@ -124,6 +130,16 @@ public class ViewFileFragment extends BaseFragment {
 
     private void loadFileContent() {
         mFileContent.loadUrl("file:///android_asset/editor.html");
+    }
+
+    /**
+     * 切回本页时调用：让 CodeMirror 重新量算一次（横向范围 / 行宽缓存）。
+     * 实测不会改变当前滚动位置，也不会造成可见的闪动。
+     */
+    public void refreshView() {
+        if (mJs != null) {
+            mJs.eval("refreshEditor();");
+        }
     }
 
     public File getFile() {
@@ -234,6 +250,16 @@ public class ViewFileFragment extends BaseFragment {
         @JavascriptInterface
         public String getViewOptions() {
             return currentOptions().toJson();
+        }
+
+        /**
+         * CodeMirror 的横向滚动边界（editor.js 在 scroll 与选项变更后上报）。
+         * 由 WebView 的 JavaBridge 线程调用，只写 volatile 字段，不碰 UI——
+         * ViewPager 会在主线程通过 WebView.canScrollHorizontally() 读这两个值。
+         */
+        @JavascriptInterface
+        public void onScrollEdges(boolean canScrollLeft, boolean canScrollRight) {
+            mFileContent.setScrollEdges(canScrollLeft, canScrollRight);
         }
 
         private void display() {

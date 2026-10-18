@@ -76,8 +76,7 @@ public class ViewFileActivity extends BaseCompatActivity {
     }
 
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
+    public boolean onCreateOptionsMenu(Menu menu) {        // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.view_file, menu);
         if (mActivityMode == TAG_MODE_SSH_KEY) {
             menu.removeItem(R.id.action_edit_in_other_app);
@@ -196,6 +195,10 @@ public class ViewFileActivity extends BaseCompatActivity {
         public void onPageSelected(int position) {
             mCurrentTab = position;
             invalidateOptionsMenu();
+            if (position == FILE_FRAGMENT_INDEX && mFileFragment != null) {
+                // 切回来时让 CodeMirror 重新量算一次，避免沿用离开前的宽度缓存
+                mFileFragment.refreshView();
+            }
         }
 
         @Override
