@@ -20,11 +20,21 @@
         app:actionViewClass="android.widget.SearchView"
         app:showAsAction="always|collapseActionView" />
     <!--
+      「在仓库中搜索…」：递归搜索（文件名 / 文件内容）的对话框入口，结果进
+      SearchResultsActivity，见 docs/file-search-design.md。文件页与提交页都可用。
+      它是目前唯一的溢出项 —— 其它三项全是 always，没它的话三点根本不出现。
+    -->
+    <item
+        android:id="@+id/action_search_repo"
+        android:orderInCategory="4"
+        android:title="@string/action_search_repo"
+        app:showAsAction="never" />
+    <!--
       标签入口：列表页长按进，详情页从这里进。图标复用列表页筛选条那个白色 label 轮廓
       （ic_action_filter_tags），两个主题的 ActionBar 都是深色，直接用，不新增资源。
       orderInCategory 比抽屉按钮小，所以它排在抽屉按钮左边 —— 只靠「声明在前」依赖的是
       ActionMenuPresenter 的隐式行为，显式写死更稳。
-      它现在是唯一的溢出项，提成 always 之后溢出菜单为空，三点自动消失。
+      溢出菜单里另有「在仓库中搜索…」（action_search_repo，never）。
     -->
     <item
         android:id="@+id/action_edit_tags"

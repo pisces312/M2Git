@@ -119,6 +119,22 @@
     <string name="sort_key_size">大小</string>
     <string name="sort_section_option">选项</string>
     <string name="sort_dirs_first">目录优先</string>
+    <!-- 仓库内搜索（英文侧注释见 values/strings.xml；pref 键不翻译） -->
+    <string name="action_search_repo">在仓库中搜索…</string>
+    <string name="dialog_search_repo_title">在仓库中搜索</string>
+    <string name="search_hint_keyword">关键词</string>
+    <string name="search_mode_name">文件名</string>
+    <string name="search_mode_content">文件内容</string>
+    <string name="search_case_sensitive">区分大小写</string>
+    <string name="search_hint_glob">文件过滤（如 *.java），留空为全部</string>
+    <string name="search_results_title">搜索结果</string>
+    <string name="search_status_searching">正在搜索…</string>
+    <string name="search_result_count">%1$d 条匹配</string>
+    <string name="search_result_truncated">匹配过多，只显示前 %1$d 条</string>
+    <string name="search_no_results">没有匹配项</string>
+    <string name="search_empty_keyword">请输入关键词</string>
+    <string name="search_result_folder">文件夹</string>
+    <string name="search_result_line_preview" formatted="true">%1$d: %2$s</string>
     <string name="dialog_rename_repo_title">重命名仓库</string>
     <string name="dialog_rename_repo_hint">仓库名称</string>
     <string name="dialog_delete_repo_title">确认删除</string>

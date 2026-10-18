@@ -86,6 +86,14 @@
                 android:value="ts.realms.m2git.ui.screens.main.RepoListActivity" />
         </activity>
         <activity
+            android:name="ts.realms.m2git.ui.screens.repoDetail.SearchResultsActivity"
+            android:label="@string/search_results_title"
+            android:parentActivityName="ts.realms.m2git.ui.screens.repoDetail.RepoDetailActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="ts.realms.m2git.ui.screens.repoDetail.RepoDetailActivity" />
+        </activity>
+        <activity
             android:name="ts.realms.m2git.ui.components.fragments.ViewFileActivity"
             android:configChanges="orientation|keyboardHidden"
             android:parentActivityName="ts.realms.m2git.ui.screens.repoDetail.RepoDetailActivity">

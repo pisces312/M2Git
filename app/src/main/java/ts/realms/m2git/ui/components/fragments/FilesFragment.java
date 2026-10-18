@@ -193,6 +193,16 @@ public class FilesFragment extends RepoDetailFragment {
         setCurrentDir(mRootDir);
     }
 
+    /**
+     * 右上角搜索框（文件页）调它：按名称 contains 过滤当前目录，详见
+     * {@link FilesListAdapter#setFilter(String)}。
+     */
+    public void setFilter(String query) {
+        if (mFilesListAdapter != null) {
+            mFilesListAdapter.setFilter(query);
+        }
+    }
+
     @Override
     public void reset() {
         resetCurrentDir();

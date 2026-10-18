@@ -138,6 +138,27 @@
     <string name="pref_key_file_dirs_first" translatable="false">file_dirs_first</string>
     <!-- 状态页上下两栏的占比，视图态：和文件页排序同放 repo_view_state -->
     <string name="pref_key_status_split_ratio" translatable="false">status_split_ratio</string>
+    <!--
+      仓库内搜索（仓库详情 · 文件页 / 溢出菜单「在仓库中搜索…」）。设计见 docs/file-search-design.md。
+      大小写设置两处共用：文件页 SearchView 的当前目录过滤、递归搜索对话框的勾选。
+      pref 键是存储字面量，不进 values-zh-rCN。
+    -->
+    <string name="action_search_repo">Search in repository…</string>
+    <string name="dialog_search_repo_title">Search in repository</string>
+    <string name="search_hint_keyword">Keyword</string>
+    <string name="search_mode_name">File name</string>
+    <string name="search_mode_content">File content</string>
+    <string name="search_case_sensitive">Case sensitive</string>
+    <string name="search_hint_glob">File filter (e.g. *.java), empty = all</string>
+    <string name="search_results_title">Search results</string>
+    <string name="search_status_searching">Searching…</string>
+    <string name="search_result_count">%1$d matches</string>
+    <string name="search_result_truncated">Too many matches, showing first %1$d</string>
+    <string name="search_no_results">No matches</string>
+    <string name="search_empty_keyword">Please enter a keyword</string>
+    <string name="search_result_folder">Folder</string>
+    <string name="search_result_line_preview" formatted="true">%1$d: %2$s</string>
+    <string name="pref_key_search_case_sensitive" translatable="false">search_case_sensitive</string>
     <string name="dialog_rename_repo_title">Rename Repository</string>
     <string name="dialog_rename_repo_hint">Repository Name</string>
     <string name="dialog_delete_repo_title">Delete Confirmation</string>

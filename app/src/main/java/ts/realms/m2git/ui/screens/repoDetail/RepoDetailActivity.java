@@ -47,6 +47,7 @@ public class RepoDetailActivity extends BaseCompatActivity {
     private static final int COMMITS_FRAGMENT_INDEX = 1;
     private static final int STATUS_FRAGMENT_INDEX = 2;
     private static final int BRANCH_CHOOSE_ACTIVITY = 0;
+    private static final int SEARCH_REPO_ACTIVITY = 1;
     private ActionBar mActionBar;
     private FilesFragment mFilesFragment;
     private CommitsFragment mCommitsFragment;
@@ -81,6 +82,16 @@ public class RepoDetailActivity extends BaseCompatActivity {
                     return;
                 }
                 reset(branchName);
+                break;
+            case SEARCH_REPO_ACTIVITY:
+                // 搜索结果页点目录回来：切到文件页并跳进那个目录
+                if (resultCode == RESULT_OK && data != null) {
+                    String dirPath = data.getStringExtra(SearchResultsActivity.EXTRA_RESULT_DIR);
+                    if (dirPath != null) {
+                        mViewPager.setCurrentItem(FILES_FRAGMENT_INDEX);
+                        mFilesFragment.setCurrentDir(new java.io.File(dirPath));
+                    }
+                }
                 break;
         }
     }
@@ -230,7 +241,8 @@ public class RepoDetailActivity extends BaseCompatActivity {
         getMenuInflater().inflate(R.menu.repo_detail, menu);
         mSearchItem = menu.findItem(R.id.action_search);
         MenuItemCompat.setOnActionExpandListener(mSearchItem, mTabItemPagerAdapter);
-        mSearchItem.setVisible(mSelectedTab == COMMITS_FRAGMENT_INDEX);
+        // 搜索对文件页（当前目录名称过滤）与提交页（提交历史过滤）都有意义，状态页没有
+        mSearchItem.setVisible(mSelectedTab != STATUS_FRAGMENT_INDEX);
         SearchView searchView = (SearchView) mSearchItem.getActionView();
         if (searchView != null) {
             searchView.setIconifiedByDefault(true);
@@ -305,8 +317,84 @@ public class RepoDetailActivity extends BaseCompatActivity {
                 mFilesFragment.showSortDialog();
             }
             return true;
+        } else if (item.getItemId() == R.id.action_search_repo) {
+            showSearchRepoDialog();
+            return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * 「在仓库中搜索…」的条件对话框：关键词 + 模式（文件名 / 文件内容）+ 大小写勾选 +
+     * 类型 glob 过滤。确认后启动 {@link SearchResultsActivity} 做递归搜索；点目录结果
+     * 由 onActivityResult(SEARCH_REPO_ACTIVITY) 接回并跳目录。设计见
+     * docs/file-search-design.md。大小写勾选存 repo_view_state，文件页 SearchView 的
+     * 当前目录过滤读的是同一份（{@link FilesListAdapter}）。
+     */
+    private void showSearchRepoDialog() {
+        final android.content.SharedPreferences prefs = getSharedPreferences(
+            getString(R.string.repo_view_state_file), MODE_PRIVATE);
+        final String caseKey = getString(R.string.pref_key_search_case_sensitive);
+
+        final android.widget.EditText keywordInput = new android.widget.EditText(this);
+        keywordInput.setHint(R.string.search_hint_keyword);
+        keywordInput.setSingleLine(true);
+
+        final android.widget.RadioGroup modeGroup = new android.widget.RadioGroup(this);
+        modeGroup.setOrientation(android.widget.RadioGroup.VERTICAL);
+        android.widget.RadioButton nameRadio = new android.widget.RadioButton(this);
+        nameRadio.setText(R.string.search_mode_name);
+        nameRadio.setId(android.view.View.generateViewId());
+        android.widget.RadioButton contentRadio = new android.widget.RadioButton(this);
+        contentRadio.setText(R.string.search_mode_content);
+        contentRadio.setId(android.view.View.generateViewId());
+        modeGroup.addView(nameRadio);
+        modeGroup.addView(contentRadio);
+        nameRadio.setChecked(true);
+
+        final android.widget.CheckBox caseBox = new android.widget.CheckBox(this);
+        caseBox.setText(R.string.search_case_sensitive);
+        caseBox.setChecked(prefs.getBoolean(caseKey, false));
+
+        final android.widget.EditText globInput = new android.widget.EditText(this);
+        globInput.setHint(R.string.search_hint_glob);
+        globInput.setSingleLine(true);
+
+        android.widget.LinearLayout content = new android.widget.LinearLayout(this);
+        content.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int margin = getResources().getDimensionPixelSize(R.dimen.general_padding_larger);
+        content.setPadding(margin, margin / 2, margin, 0);
+        content.addView(keywordInput);
+        content.addView(modeGroup);
+        content.addView(caseBox);
+        content.addView(globInput);
+
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.addView(content);
+
+        new android.app.AlertDialog.Builder(this)
+            .setTitle(R.string.dialog_search_repo_title)
+            .setView(scroll)
+            .setPositiveButton(R.string.action_search, (dialog, which) -> {
+                String query = keywordInput.getText().toString().trim();
+                if (query.isEmpty()) {
+                    showToastMessage(R.string.search_empty_keyword);
+                    return;
+                }
+                prefs.edit().putBoolean(caseKey, caseBox.isChecked()).apply();
+                Intent intent = new Intent(this, SearchResultsActivity.class);
+                intent.putExtra(Repo.TAG, mRepo);
+                intent.putExtra(SearchResultsActivity.EXTRA_QUERY, query);
+                intent.putExtra(SearchResultsActivity.EXTRA_MODE,
+                    modeGroup.getCheckedRadioButtonId() == contentRadio.getId()
+                        ? SearchResultsActivity.MODE_CONTENT : SearchResultsActivity.MODE_NAME);
+                intent.putExtra(SearchResultsActivity.EXTRA_CASE_SENSITIVE, caseBox.isChecked());
+                intent.putExtra(SearchResultsActivity.EXTRA_GLOB,
+                    globInput.getText().toString().trim());
+                startActivityForResult(intent, SEARCH_REPO_ACTIVITY);
+            })
+            .setNegativeButton(R.string.label_cancel, null)
+            .show();
     }
 
     /**
@@ -438,7 +526,7 @@ public class RepoDetailActivity extends BaseCompatActivity {
                 mStatusFragment.reset();
             }
             if (mSearchItem != null) {
-                mSearchItem.setVisible(position == COMMITS_FRAGMENT_INDEX);
+                mSearchItem.setVisible(position != STATUS_FRAGMENT_INDEX);
             }
             if (mSortItem != null) {
                 mSortItem.setVisible(position == FILES_FRAGMENT_INDEX);
@@ -453,6 +541,9 @@ public class RepoDetailActivity extends BaseCompatActivity {
         @Override
         public boolean onQueryTextSubmit(String query) {
             switch (mViewPager.getCurrentItem()) {
+                case FILES_FRAGMENT_INDEX:
+                    mFilesFragment.setFilter(query);
+                    break;
                 case COMMITS_FRAGMENT_INDEX:
                     mCommitsFragment.setFilter(query);
                     break;
@@ -463,6 +554,9 @@ public class RepoDetailActivity extends BaseCompatActivity {
         @Override
         public boolean onQueryTextChange(String query) {
             switch (mViewPager.getCurrentItem()) {
+                case FILES_FRAGMENT_INDEX:
+                    mFilesFragment.setFilter(query);
+                    break;
                 case COMMITS_FRAGMENT_INDEX:
                     mCommitsFragment.setFilter(query);
                     break;
@@ -478,6 +572,9 @@ public class RepoDetailActivity extends BaseCompatActivity {
         @Override
         public boolean onMenuItemActionCollapse(MenuItem menuItem) {
             switch (mViewPager.getCurrentItem()) {
+                case FILES_FRAGMENT_INDEX:
+                    mFilesFragment.setFilter(null);
+                    break;
                 case COMMITS_FRAGMENT_INDEX:
                     mCommitsFragment.setFilter(null);
                     break;

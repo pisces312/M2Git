@@ -59,6 +59,13 @@ public class FilesListAdapter extends ArrayAdapter<File> {
 
     /** 本轮装进 adapter 的目录，改排序设置后要按它重排一次。 */
     private File mDir;
+    /**
+     * 当前目录的**未过滤**快照，{@link #setDir(File)} 落地时更新。{@link #setFilter(String)}
+     * 只从它重新过滤，不重新列目录。
+     */
+    private File[] mListedFiles;
+    /** 当前目录过滤词；null = 不过滤。跨目录保留：搜索框展开时点进子目录，子目录同样被过滤。 */
+    private String mFilterQuery;
     private int mSortKey = SORT_KEY_NAME;
     private int mSortDir = SORT_DIR_ASC;
     /** 默认 true：保持本 app 一直以来的观感，也和绝大多数文件浏览器一致。 */
@@ -158,10 +165,45 @@ public class FilesListAdapter extends ArrayAdapter<File> {
             mMainHandler.post(() -> {
                 // 已经有更新的一轮（换目录 / 又改了排序）在跑或跑完，这一轮的结果直接丢
                 if (token != mListingToken.get()) return;
-                addAll(Arrays.asList(files));
+                mListedFiles = files;
+                addAll(Arrays.asList(applyNameFilter(files, mFilterQuery, isSearchCaseSensitive())));
                 notifyDataSetChanged();
             });
         });
+    }
+
+    // ---- 当前目录过滤 ----
+
+    /**
+     * 按名称过滤当前目录条目（contains 匹配）。主线程**同步**执行：过滤一个已缓存的数组是
+     * 纯内存 O(n)，不需要后台线程 —— 也因此避开了与 {@link #setDir(File)} 的 token 互相
+     * 作废问题（搜索框展开时点进子目录，在途的 setDir 不能被一个过滤动作判过期）。
+     * 过滤词持久跨目录，传 null / 空串恢复完整列表。
+     */
+    public void setFilter(String query) {
+        mFilterQuery = (query == null || query.trim().isEmpty()) ? null : query.trim();
+        if (mListedFiles == null) return;
+        clear();
+        addAll(Arrays.asList(applyNameFilter(mListedFiles, mFilterQuery, isSearchCaseSensitive())));
+        notifyDataSetChanged();
+    }
+
+    private static File[] applyNameFilter(File[] source, String query, boolean caseSensitive) {
+        if (query == null) return source;
+        String needle = caseSensitive ? query : query.toLowerCase();
+        List<File> matched = new ArrayList<>(source.length);
+        for (File file : source) {
+            String name = caseSensitive ? file.getName() : file.getName().toLowerCase();
+            if (name.contains(needle)) {
+                matched.add(file);
+            }
+        }
+        return matched.toArray(new File[0]);
+    }
+
+    /** 与「在仓库中搜索…」对话框的勾选同一份设置（repo_view_state），两处行为一致。 */
+    private boolean isSearchCaseSensitive() {
+        return getViewStatePrefs().getBoolean(prefKey(R.string.pref_key_search_case_sensitive), false);
     }
 
     // ---- 排序设置 ----
