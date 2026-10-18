@@ -3,5 +3,6 @@
 *.kt text eol=lf
 *.gradle text eol=lf
 gradlew eol=lf
+*.sh text eol=lf
 *.xml eol=lf
 .git* text eol=lf

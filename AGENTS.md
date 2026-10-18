@@ -5,6 +5,11 @@
 - **默认仅构建 arm64-v8a**，不构建 x86_64：模拟器（x86_64 镜像带 ARM 转译）可直接安装运行 arm 版 APK，无需单独的 x86_64 包。
 - 需要其他 ABI 时手动指定：`./gradlew assembleDebug -PbuildAbi=x86_64`。
 - 一键脚本：`./build.sh [debug|release] [arm64|x86_64]`（默认 release arm64；release 需签名环境变量，见全局约定）。
+  **build.sh 是 Bash 脚本（`#!/usr/bin/env bash`、`case`/`sed`/`du` 等 shell 语法），不是 PowerShell/cmd 语法，
+  Windows 下必须用 Git Bash 跑**（Git Bash 终端里 `./build.sh`，或 PowerShell 里 `& 'D:\dev\Git\bin\bash.exe' build.sh ...`）。
+  踩坑：PowerShell 里的 `bash` 解析到 `C:\WINDOWS\system32\bash.exe`（WSL），Windows 签名环境变量传不进去，
+  release 构建会报 `KEY_STORE env var not set` —— 必须用 Git Bash。另：`*.sh` 已在 .gitattributes 约定 `eol=lf`；
+  若 bash 报 `$'\r': command not found`，说明文件被检出成 CRLF 行尾，转回 LF 即可。
 - CI（`.github/workflows/build.yml`）跑裸 `assembleDebug`，跟随 app/build.gradle 的默认 ABI 列表。
 
 ## 构建栈（2026-10 升级后）
