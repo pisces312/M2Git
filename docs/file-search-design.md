@@ -16,7 +16,8 @@
 工具栏与搜索条分工（2026-10-18 改版，起因：SearchView 折叠展开和其他图标挤同一条工具栏，
 输入框只剩两百多像素、标题也被吃光）：
 
-- **工具栏常驻图标只留高频**：排序（文件页）、搜索，其余进溢出菜单（编辑标签、开关抽屉）。
+- **工具栏常驻图标 = 高频 + 核心入口**：排序（文件页）、搜索、开关抽屉（抽屉里是拉取/推送
+  等仓库操作，核心功能，必须常驻），编辑标签这种低频操作进溢出菜单。
   仓库名标题恢复完整空间。
 - **点「搜索」滑出全宽搜索条**（`activity_repo_detail_content.xml` 的 `searchBar`，
   独占工具栏下方一行）：输入即过滤**当前 tab** —— 文件页 = 当前目录条目、提交页 = 提交
@@ -91,7 +92,7 @@ RepoDetailActivity），由详情页 `startActivityForResult` 启动，extras：
 
 | 文件 | 改动 |
 |---|---|
-| `res/menu/repo_detail.xml` | 常驻只留 排序/搜索，编辑标签与开关抽屉进溢出 |
+| `res/menu/repo_detail.xml` | 常驻 = 排序/搜索/开关抽屉，编辑标签进溢出 |
 | `RepoDetailActivity.java` | 全宽搜索条（show/hide/转发过滤/返回键收起）、搜索条件对话框、结果回传跳目录 |
 | `FilesListAdapter.java` / `FilesFragment.java` | `setFilter` + 未过滤快照 |
 | `SearchResultsActivity.java`（新） | 递归搜索与结果展示 |

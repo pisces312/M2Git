@@ -2,8 +2,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <!--
       工具栏布局约定（2026-10 搜索条改版后）：
-      常驻图标只留高频的「排序」「搜索」+ 溢出三点，低频的「编辑标签」「开关抽屉」
-      全进溢出菜单 —— 再堆 4 个 always 图标，标题就一行都站不下了。
+      常驻图标 = 「排序」「搜索」「开关抽屉」+ 溢出三点 —— 抽屉里是仓库操作这排核心
+      功能，入口必须常驻；低频的「编辑标签」进溢出菜单。别再往这里加 always 项，
+      堆满 4 个图标标题就没空间了。
       搜索不再用 SearchView 折叠展开（它和其他图标挤同一行，输入框只剩两百多像素），
       点「搜索」在工具栏**下方**滑出全宽搜索条（activity_repo_detail_content.xml 的
       searchBar），搜索条上的按钮负责「在仓库中搜索…」。设计见 docs/file-search-design.md。
@@ -24,19 +25,23 @@
     <!--
       标签入口：列表页长按进，详情页从这里进。图标复用列表页筛选条那个白色 label 轮廓
       （ic_action_filter_tags），两个主题的 ActionBar 都是深色，直接用，不新增资源。
-      orderInCategory 比抽屉按钮小，所以它在溢出菜单里排在抽屉项上面 —— 只靠「声明在前」
-      依赖的是 ActionMenuPresenter 的隐式行为，显式写死更稳。
+      orderInCategory 最大，所以它在溢出菜单里排最下 —— 只靠「声明在前」依赖的是
+      ActionMenuPresenter 的隐式行为，显式写死更稳。
     -->
     <item
         android:id="@+id/action_edit_tags"
         android:icon="@drawable/ic_action_filter_tags"
-        android:orderInCategory="2"
+        android:orderInCategory="3"
         android:title="@string/label_edit_tags"
         app:showAsAction="never" />
+    <!--
+      抽屉里是仓库操作（拉取/推送/…）这一排核心功能，入口必须常驻工具栏，
+      不能收进溢出（2026-10-18 用户明确要求）。
+    -->
     <item
         android:id="@+id/action_toggle_drawer"
         android:icon="@drawable/ic_drawer"
-        android:orderInCategory="3"
+        android:orderInCategory="2"
         android:title="@string/action_toggle_drawer"
-        app:showAsAction="never" />
+        app:showAsAction="always" />
 </menu>
