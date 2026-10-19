@@ -175,6 +175,7 @@
     <string name="dialog_create_branch_title">创建新的分支</string>
     <string name="dialog_create_branch_hint">分支名称</string>
     <string name="dialog_clone_recursive">递归克隆</string>
+    <string name="dialog_clone_depth_hint">浅克隆深度：1 = 浅克隆（仅最新提交）；留空 = 全量克隆</string>
     <string name="dialog_show_unstaged_diff">未暂存 diff</string>
     <string name="dialog_show_staged_diff">已暂存 diff</string>
     <string name="dialog_show_invalid_remote">无效远程报告</string>
