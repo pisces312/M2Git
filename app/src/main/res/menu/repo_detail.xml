@@ -1,13 +1,15 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <!--
-      工具栏布局约定（2026-10 搜索条改版后）：
-      常驻图标 = 「排序」「搜索」「开关抽屉」+ 溢出三点 —— 抽屉里是仓库操作这排核心
-      功能，入口必须常驻；低频的「编辑标签」进溢出菜单。别再往这里加 always 项，
-      堆满 4 个图标标题就没空间了。
+      工具栏布局约定（2026-10-20 二次改版后）：
+      常驻图标只有「排序」（仅文件页）和「开关抽屉」—— 抽屉里是仓库操作这排核心
+      功能，入口必须常驻。**「搜索」已收进溢出菜单**（2026-10-20）：一是给标题腾宽度
+      （实测工具栏 411dp 宽时，每收一个 48dp 图标标题就多约 5 个字符），二是配合
+      ActionBar 去掉返回箭头后，标题可用宽度从约 191dp 提到约 296dp。别再往这里加
+      always 项。
       搜索不再用 SearchView 折叠展开（它和其他图标挤同一行，输入框只剩两百多像素），
-      点「搜索」在工具栏**下方**滑出全宽搜索条（activity_repo_detail_content.xml 的
-      searchBar），搜索条上的按钮负责「在仓库中搜索…」。设计见 docs/file-search-design.md。
+      点溢出的「搜索」在工具栏**下方**滑出全宽搜索条（activity_repo_detail_content.xml
+      的 searchBar），搜索条上的按钮负责「在仓库中搜索…」。设计见 docs/file-search-design.md。
     -->
     <item
         android:id="@+id/action_sort_files"
@@ -15,13 +17,18 @@
         android:orderInCategory="0"
         android:title="@string/action_sort"
         app:showAsAction="always" />
+    <!--
+      搜索：溢出菜单第一项（orderInCategory 小于「编辑标签」）。visible 仍由
+      RepoDetailActivity 按 tab 控制（状态页无过滤语义，隐藏）。溢出列表按框架默认
+      不渲染图标，只显示标题文字。
+    -->
     <item
         android:id="@+id/action_search"
         android:icon="@drawable/ic_search"
         android:orderInCategory="1"
         android:title="@string/action_search"
         android:visible="false"
-        app:showAsAction="always" />
+        app:showAsAction="never" />
     <!--
       标签入口：列表页长按进，详情页从这里进。图标复用列表页筛选条那个白色 label 轮廓
       （ic_action_filter_tags），两个主题的 ActionBar 都是深色，直接用，不新增资源。

@@ -83,6 +83,17 @@
 - **完整原因、框架源码证据（行号）、替代方案与实施要点**见 `docs/searchview-refactor-investigation.md`。
 - Android 13+ 重写 `onBackPressed()` 无效，拦返回键用 `getOnBackPressedDispatcher().addCallback(...)`。
 
+## 仓库详情页工具栏（2026-10-20 决议）
+
+- **常驻图标只有「排序」（仅文件页）和「开关抽屉」**；「搜索」在**溢出菜单第一项**（`orderInCategory=1`），
+  「编辑标签」在其后。**不要再把搜索改回 `showAsAction="always"`**：411dp 宽的工具栏上每个图标约 48dp，
+  标题会重新被挤掉。
+- **ActionBar 不显示返回箭头**（`setupActionBar()` 里 `setDisplayHomeAsUpEnabled(false)`）：
+  返回统一走系统返回 → `RepoDetailActivity.onKeyUp`（搜索条先收 → 文件页子目录先上跳 → `finish()`）。
+  `onOptionsItemSelected` 里**不要**再加 `android.R.id.home` 分支——旧分支直接 `finish()`，与系统返回语义冲突。
+- 宽度基线（1080×2400 @420dpi 实测）：去掉箭头 + 搜索进溢出后标题可用宽约 296dp（原约 191dp），
+  标题 20sp 约 8.7dp/字符。仓库名过长仍会 `ellipsize`，要"永不截断"需换自适应字号的自定义标题视图。
+
 ## 资源与多语言
 
 - 用户可见文案必须同时更新 `values/` 与 `values-zh-rCN/`（arrays.xml、strings.xml）。

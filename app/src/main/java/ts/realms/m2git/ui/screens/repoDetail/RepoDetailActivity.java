@@ -161,7 +161,7 @@ public class RepoDetailActivity extends BaseCompatActivity {
     /**
      * 工具栏下方的全宽搜索条（activity_repo_detail_content.xml 的 searchBar）。
      * 曾经这里用的是 SearchView 折叠展开 —— 但它和排序/标签/抽屉图标挤同一条工具栏，
-     * 输入框只剩两百多像素，标题也被吃光。现在搜索条独占一行，工具栏只留高频图标。
+     * 输入框只剩两百多像素，标题也被吃光。现在搜索条独占一行，入口在溢出菜单第一项。
      *
      * 输入即过滤当前 tab（文件页 = 当前目录文件名，{@link FilesFragment#setFilter}；
      * 提交页 = 提交历史，{@link CommitsFragment#setFilter}），右侧按钮弹
@@ -194,7 +194,10 @@ public class RepoDetailActivity extends BaseCompatActivity {
         mSearchBarInput.requestFocus();
         InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         if (imm != null) {
-            imm.showSoftInput(mSearchBarInput, InputMethodManager.SHOW_IMPLICIT);
+            // 入口在溢出菜单：点选后弹出窗当帧还在收起、焦点尚未回到 Activity 窗口，
+            // 同帧 showSoftInput 有概率被忽略（搜索条滑出但键盘不弹）。挪到下一帧再弹。
+            mSearchBarInput.post(() ->
+                imm.showSoftInput(mSearchBarInput, InputMethodManager.SHOW_IMPLICIT));
         }
     }
 
@@ -253,10 +256,20 @@ public class RepoDetailActivity extends BaseCompatActivity {
             .findViewById(R.id.rightHint);
     }
 
+    /**
+     * 工具栏不显示返回箭头（2026-10-20 决议）：标题是仓库名（外部仓库还带 " (external)"
+     * 后缀），411dp 宽的工具栏上箭头要吃掉约 57dp（箭头 48dp 触控区 + 标题左边距差），
+     * 去掉后标题可用宽度从约 191dp 提到约 248dp；配合搜索收进溢出菜单可达约 296dp
+     * （实测基线 1080×2400 @420dpi）。
+     * 返回统一交给系统返回（手势 / 三键 / 键盘），走 {@link #onKeyUp(int, KeyEvent)}：
+     * 搜索条开着先收条 → 文件页在子目录先上跳一级 → 最后才 finish。这比原来工具栏箭头
+     * 直接 finish() 更符合层级语义（旧实现两条"返回"路径语义不一致，已随箭头一起去掉）。
+     */
     private void setupActionBar() {
         mActionBar = getSupportActionBar();
         mActionBar.setDisplayShowTitleEnabled(true);
-        mActionBar.setDisplayHomeAsUpEnabled(true);
+        mActionBar.setDisplayHomeAsUpEnabled(false);
+        mActionBar.setDisplayShowHomeEnabled(false);
     }
 
     private void createFragments() {
@@ -318,7 +331,8 @@ public class RepoDetailActivity extends BaseCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.repo_detail, menu);
-        // 搜索对文件页（当前目录名称过滤）与提交页（提交历史过滤）都有意义，状态页没有
+        // 搜索（溢出菜单项）对文件页（当前目录名称过滤）与提交页（提交历史过滤）
+        // 都有意义，状态页没有
         mSearchItem = menu.findItem(R.id.action_search);
         mSearchItem.setVisible(mSelectedTab != STATUS_FRAGMENT_INDEX);
         // 排序只对文件页有意义。mSelectedTab 的初值就是 FILES_FRAGMENT_INDEX(0)，
@@ -378,10 +392,7 @@ public class RepoDetailActivity extends BaseCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == android.R.id.home) {
-            finish();
-            return true;
-        } else if (item.getItemId() == R.id.action_toggle_drawer) {
+        if (item.getItemId() == R.id.action_toggle_drawer) {
             if (mDrawerLayout.isDrawerOpen(mRightDrawer)) {
                 mDrawerLayout.closeDrawer(mRightDrawer);
             } else {
@@ -616,7 +627,7 @@ public class RepoDetailActivity extends BaseCompatActivity {
                 mSortItem.setVisible(position == FILES_FRAGMENT_INDEX);
             }
             // 搜索条跟着 tab 走：提示词换一套，过滤词套用到新 tab；状态页没有过滤
-            // 语义，直接收起（搜索图标本来也在这一页隐藏）。
+            // 语义，直接收起（溢出菜单里的搜索项本来也在这一页隐藏）。
             if (position == STATUS_FRAGMENT_INDEX) {
                 if (isSearchBarVisible()) {
                     hideSearchBar();
