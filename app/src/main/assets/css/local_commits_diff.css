@@ -44,6 +44,20 @@ pre code {
     border-left: 3px solid #E0A800;
     color: #4A3B00;
 }
+
+/* 深色主题：WebView 不跟随应用内手工主题，由 CommitDiffActivity 在 body 上挂 theme-dark */
+body.theme-dark {
+    background: #1C1B1F;
+    color: #E6E1E5;
+}
+body.theme-dark .info-block {
+    background: #2B2930;
+}
+body.theme-dark .info-block.shallow-boundary {
+    background: #3A2E00;
+    border-left-color: #E0A800;
+    color: #FFE082;
+}
 .shallow-boundary-title {
     font-weight: bold;
     padding-bottom: 4px;

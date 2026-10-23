@@ -30,8 +30,8 @@
             android:minHeight="@dimen/general_min_height"
             android:padding="@dimen/general_padding"
             android:singleLine="true"
-            android:textColor="#ffffff"
-            android:textColorHint="#80ffffff" />
+            android:textColor="?attr/colorOnSurface"
+            android:textColorHint="?attr/colorOnSurfaceVariant" />
 
         <ImageButton
             android:id="@+id/searchBarRepo"
@@ -40,7 +40,8 @@
             android:background="?android:attr/selectableItemBackground"
             android:contentDescription="@string/action_search_repo"
             android:padding="@dimen/general_padding"
-            android:src="@drawable/ic_search_repo" />
+            android:src="@drawable/ic_search_repo"
+            android:tint="?attr/colorOnSurfaceVariant" />
 
         <ImageButton
             android:id="@+id/searchBarClose"
@@ -50,7 +51,7 @@
             android:contentDescription="@string/label_cancel"
             android:padding="@dimen/general_padding"
             android:src="@drawable/ic_action_cancel"
-            android:tint="#ffffff" />
+            android:tint="?attr/colorOnSurfaceVariant" />
     </LinearLayout>
 
     <androidx.viewpager.widget.ViewPager
@@ -68,7 +69,7 @@
             android:background="?pager_title_strip_background"
             android:paddingTop="4dp"
             android:paddingBottom="4dp"
-            android:textColor="#fff" />
+            android:textColor="?attr/colorOnSurfaceVariant" />
     </androidx.viewpager.widget.ViewPager>
 
     <Button
@@ -90,7 +91,7 @@
         android:layout_alignBottom="@+id/commitName"
         android:layout_alignParentStart="true"
         android:padding="@dimen/general_padding"
-        android:src="@drawable/ic_branch_w" />
+        android:src="?ic_branch_l" />
 
     <LinearLayout
         android:id="@+id/pullProgressContainer"
@@ -108,7 +109,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/default_text"
-            android:textColor="@color/general_gray_text_color"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="@dimen/file_list_header_msg_size" />
 
         <ProgressBar
@@ -127,7 +128,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="start"
                 android:text="@string/default_text"
-                android:textColor="@color/general_gray_text_color"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="@dimen/file_list_header_hint_size" />
 
             <TextView
@@ -137,7 +138,7 @@
                 android:layout_alignParentEnd="true"
                 android:gravity="start"
                 android:text="@string/default_text"
-                android:textColor="@color/general_gray_text_color"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="@dimen/file_list_header_hint_size" />
         </RelativeLayout>
     </LinearLayout>

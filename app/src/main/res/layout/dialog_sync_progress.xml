@@ -21,7 +21,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/default_text"
-            android:textColor="@color/general_gray_text_color"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="@dimen/file_list_header_msg_size" />
 
         <ProgressBar
@@ -40,7 +40,7 @@
                 android:layout_height="wrap_content"
                 android:layout_alignParentStart="true"
                 android:text="@string/default_text"
-                android:textColor="@color/general_gray_text_color"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="@dimen/file_list_header_hint_size" />
 
             <TextView
@@ -49,7 +49,7 @@
                 android:layout_height="wrap_content"
                 android:layout_alignParentEnd="true"
                 android:text="@string/default_text"
-                android:textColor="@color/general_gray_text_color"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="@dimen/file_list_header_hint_size" />
         </RelativeLayout>
     </LinearLayout>

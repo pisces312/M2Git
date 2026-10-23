@@ -11,13 +11,62 @@
 
 
     <!-- Application theme. -->
-    <style name="AppTheme" parent="Theme.Sgit">
+    <style name="AppTheme" parent="Theme.M2Git.M3">
         <!-- All customizations that are NOT specific to a particular API-level can go here. -->
     </style>
 
     <!-- Application theme. -->
-    <style name="DarkAppTheme" parent="Theme.SgitDark">
+    <style name="DarkAppTheme" parent="Theme.M2Git.M3.Dark">
         <!-- All customizations that are NOT specific to a particular API-level can go here. -->
+    </style>
+
+    <!--
+      Material 3 主题（路线甲：仍是 XML + View 栈）。AppTheme/DarkAppTheme 的名字保留，
+      Profile.getThemeResource() 与各 Activity 的 setTheme() 都不用改。
+      浅/深仍由用户手动选择两套主题（不走 values-night），所以与主题相关的颜色一律用
+      ?attr 角色表达；动态取色由 DynamicColors 在 Activity 创建时叠加，见 MainApplication。
+
+      注意：Material3 没有 DarkActionBar 变体，两套主题的 ActionBar 都是 surface 色，
+      菜单/工具栏图标不能再假设白底深色，要用 ?attr/colorOnSurface 一类的角色色。
+    -->
+    <style name="Theme.M2Git.M3" parent="Theme.Material3.Light">
+        <item name="bt_branch_name_bg" type="color">?attr/colorPrimaryContainer</item>
+        <item name="bt_branch_name_text_color" type="color">?attr/colorOnPrimaryContainer</item>
+        <item name="pager_title_strip_background" type="color">?attr/colorSurfaceContainer</item>
+        <item name="mgit_drawer_text_color" type="color">?attr/colorOnSurface</item>
+        <item name="mgit_drawer_background" type="color">?attr/colorSurfaceContainer</item>
+        <item name="ic_file_fl" type="drawable">@drawable/ic_file_d</item>
+        <item name="ic_folder_fl" type="drawable">@drawable/ic_folder_d</item>
+        <item name="ic_branch_l" type="drawable">@drawable/ic_branch_d</item>
+        <item name="ic_tag_l" type="drawable">@drawable/ic_tag_d</item>
+
+        <!-- 系统栏跟随 M3 surface，而不是 MaterialComponents 默认的 colorPrimaryDark -->
+        <item name="android:statusBarColor">?attr/colorSurface</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">?attr/colorSurface</item>
+        <item name="android:windowLightNavigationBar">true</item>
+
+        <!-- 暗色主题启动时不再先闪一帧默认浅色主题，见旧 Theme.Sgit 里的同一条注释 -->
+        <item name="android:windowDisablePreview">true</item>
+    </style>
+
+    <style name="Theme.M2Git.M3.Dark" parent="Theme.Material3.Dark">
+        <item name="bt_branch_name_bg" type="color">?attr/colorPrimaryContainer</item>
+        <item name="bt_branch_name_text_color" type="color">?attr/colorOnPrimaryContainer</item>
+        <item name="pager_title_strip_background" type="color">?attr/colorSurfaceContainer</item>
+        <item name="mgit_drawer_text_color" type="color">?attr/colorOnSurface</item>
+        <item name="mgit_drawer_background" type="color">?attr/colorSurfaceContainer</item>
+        <item name="ic_file_fl" type="drawable">@drawable/ic_file</item>
+        <item name="ic_folder_fl" type="drawable">@drawable/ic_folder_w</item>
+        <item name="ic_branch_l" type="drawable">@drawable/ic_branch_w</item>
+        <item name="ic_tag_l" type="drawable">@drawable/ic_tag_w</item>
+
+        <item name="android:statusBarColor">?attr/colorSurface</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">?attr/colorSurface</item>
+        <item name="android:windowLightNavigationBar">false</item>
+
+        <item name="android:windowDisablePreview">true</item>
     </style>
 
     <style name="items_with_same_width">

@@ -64,7 +64,8 @@
         android:contentDescription="@string/label_edit_tags"
         android:padding="12dp"
         android:scaleType="fitCenter"
-        android:src="@drawable/ic_action_filter_tags" />
+        android:src="@drawable/ic_action_filter_tags"
+        android:tint="#FFFFFF" />
 
     <ImageButton
         android:id="@+id/btnOpenRemote"

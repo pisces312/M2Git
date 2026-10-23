@@ -24,14 +24,14 @@
     -->
     <item
         android:id="@+id/action_search"
-        android:icon="@drawable/ic_search"
+        android:icon="@drawable/ic_menu_search"
         android:orderInCategory="1"
         android:title="@string/action_search"
         android:visible="false"
         app:showAsAction="never" />
     <!--
-      标签入口：列表页长按进，详情页从这里进。图标复用列表页筛选条那个白色 label 轮廓
-      （ic_action_filter_tags），两个主题的 ActionBar 都是深色，直接用，不新增资源。
+      标签入口：列表页长按进，详情页从这里进。图标复用列表页筛选条那个 label 轮廓
+      （ic_action_filter_tags，跟随主题 colorOnSurface），不新增资源。
       orderInCategory 最大，所以它在溢出菜单里排最下 —— 只靠「声明在前」依赖的是
       ActionMenuPresenter 的隐式行为，显式写死更稳。
     -->
@@ -47,7 +47,7 @@
     -->
     <item
         android:id="@+id/action_toggle_drawer"
-        android:icon="@drawable/ic_drawer"
+        android:icon="@drawable/ic_menu_drawer"
         android:orderInCategory="2"
         android:title="@string/action_toggle_drawer"
         app:showAsAction="always" />

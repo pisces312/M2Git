@@ -270,6 +270,8 @@
     <string name="preference_use_gravatar_summary">从cravatar.cn加载头像图片</string>
     <string name="pref_category_title_security">安全</string>
     <string name="preference_use_theme">选择颜色主题</string>
+    <string name="preference_dynamic_color">动态取色</string>
+    <string name="preference_dynamic_color_summary">跟随壁纸配色（Android 12+）</string>
     <string name="action_git_profile">Git 配置</string>
     <string name="action_open_in_other_app">在其他应用中打开</string>
     <string name="action_add_private_key">添加私钥</string>

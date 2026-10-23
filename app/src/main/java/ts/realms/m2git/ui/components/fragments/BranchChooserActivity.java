@@ -24,6 +24,7 @@ import timber.log.Timber;
 import ts.realms.m2git.R;
 import ts.realms.m2git.core.command.tasks.local.CheckoutTask;
 import ts.realms.m2git.core.models.Repo;
+import ts.realms.m2git.local.preference.Profile;
 import ts.realms.m2git.ui.common.errors.StopTaskException;
 import ts.realms.m2git.ui.components.dialogs.RenameBranchDialog;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity;
@@ -189,10 +190,12 @@ public class BranchChooserActivity extends BaseCompatActivity implements ActionM
             int commitType = Repo.getCommitType(commitName);
             switch (commitType) {
                 case Repo.COMMIT_TYPE_HEAD:
-                    holder.commitIcon.setImageResource(R.drawable.ic_branch_d);
+                    holder.commitIcon.setImageResource(Profile.getStyledResource(
+                        holder.commitIcon.getContext(), R.attr.ic_branch_l));
                     break;
                 case Repo.COMMIT_TYPE_TAG:
-                    holder.commitIcon.setImageResource(R.drawable.ic_tag_d);
+                    holder.commitIcon.setImageResource(Profile.getStyledResource(
+                        holder.commitIcon.getContext(), R.attr.ic_tag_l));
                     break;
             }
             holder.commitTitle.setText(displayName);

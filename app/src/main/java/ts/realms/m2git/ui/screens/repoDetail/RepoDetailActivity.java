@@ -35,6 +35,7 @@ import ts.realms.m2git.core.command.SyncHost;
 import ts.realms.m2git.core.models.Repo;
 import ts.realms.m2git.core.models.Tag;
 import ts.realms.m2git.local.database.RepoDbManager;
+import ts.realms.m2git.local.preference.Profile;
 import ts.realms.m2git.ui.components.adapters.RepoOperationsAdapter;
 import ts.realms.m2git.ui.components.dialogs.TagPickerDialog;
 import ts.realms.m2git.ui.components.fragments.BranchChooserActivity;
@@ -287,11 +288,11 @@ public class RepoDetailActivity extends BaseCompatActivity implements SyncHost {
                 commitName = Repo.convertRemoteName(commitName);
             case Repo.COMMIT_TYPE_HEAD:
                 mCommitType.setVisibility(View.VISIBLE);
-                mCommitType.setImageResource(R.drawable.ic_branch_w);
+                mCommitType.setImageResource(Profile.getStyledResource(this, R.attr.ic_branch_l));
                 break;
             case Repo.COMMIT_TYPE_TAG:
                 mCommitType.setVisibility(View.VISIBLE);
-                mCommitType.setImageResource(R.drawable.ic_tag_w);
+                mCommitType.setImageResource(Profile.getStyledResource(this, R.attr.ic_tag_l));
                 break;
             case Repo.COMMIT_TYPE_TEMP:
                 mCommitType.setVisibility(View.GONE);

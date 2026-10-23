@@ -2,11 +2,12 @@
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24.0"
-    android:viewportHeight="24.0">
+    android:viewportHeight="24.0"
+    android:tint="?attr/colorOnSurface">
     <!--
-      Material「sort」：三条左对齐、长度递减的横线。工具栏图标一律纯白，与
-      ic_search / ic_action_filter_tags / ic_action_settings 同一规则（两个主题的
-      ActionBar 都是深色）。用 vector 而不是补一套 m~xxxhdpi 的 png：新增图标没有历史包袱。
+      Material「sort」：三条左对齐、长度递减的横线。工具栏图标跟随主题的 colorOnSurface
+      （Material3 的 ActionBar 是 surface 色，不能再用纯白）。用 vector 而不是补一套
+      m~xxxhdpi 的 png：新增图标没有历史包袱。
     -->
     <path
         android:fillColor="#FFFFFF"

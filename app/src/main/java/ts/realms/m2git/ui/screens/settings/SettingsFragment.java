@@ -196,11 +196,13 @@ public class SettingsFragment extends PreferenceFragmentCompat implements Prefer
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, @Nullable String s) {
         final String themePrefKey = getString(R.string.pref_key_use_theme_id);
+        final String dynamicColorPrefKey = getString(R.string.pref_key_use_dynamic_color);
         final String gravatarPrefKey = getString(R.string.pref_key_use_gravatar);
         final String useEnglishPrefKey = getString(R.string.pref_key_use_english);
-        if (themePrefKey.equals(s)) {
+        if (themePrefKey.equals(s) || dynamicColorPrefKey.equals(s)) {
             // nice trick to recreate the back stack, to ensure existing activities onCreate() are
             // called to set new theme, courtesy of: http://stackoverflow.com/a/28799124/85472
+            // 动态取色也要重建：DynamicColors 的 precondition 只在 Activity 创建时求值
             TaskStackBuilder.create(getActivity())
                 .addNextIntent(new Intent(getActivity(), RepoListActivity.class))
                 .addNextIntent(getActivity().getIntent())

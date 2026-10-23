@@ -23,7 +23,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/default_text"
-        android:textColor="@color/general_gray_text_color"
+        android:textColor="?attr/colorOnSurfaceVariant"
         android:textSize="@dimen/repo_list_item_remote_size" />
 
     <RelativeLayout
@@ -60,7 +60,7 @@
                     android:layout_height="wrap_content"
                     android:layout_alignParentLeft="true"
                     android:text="@string/default_text"
-                    android:textColor="@color/general_gray_text_color"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="@dimen/repo_list_item_author_size"
                     android:textStyle="bold" />
 
@@ -71,7 +71,7 @@
                     android:layout_marginLeft="@dimen/general_horizontal_margin"
                     android:layout_toRightOf="@id/commitAuthor"
                     android:text="@string/default_text"
-                    android:textColor="@color/general_gray_text_color"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="@dimen/repo_list_item_time_size" />
             </RelativeLayout>
 
@@ -80,7 +80,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/default_text"
-                android:textColor="@color/general_gray_text_color"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="@dimen/repo_list_item_msg_size" />
         </LinearLayout>
     </RelativeLayout>
@@ -108,7 +108,7 @@
             android:layout_toRightOf="@+id/cloningProgressBar"
             android:gravity="left|center"
             android:text="@string/default_text"
-            android:textColor="@color/general_gray_text_color"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="@dimen/repo_list_item_msg_size" />
 
         <ImageButton

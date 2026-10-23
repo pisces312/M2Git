@@ -94,4 +94,9 @@ public class Profile {
         String useEnglishPrefKey = context.getString(R.string.pref_key_use_english);
         getProfileSharedPreference(context).edit().putBoolean(useEnglishPrefKey, useEnglish).apply();
     }
+
+    public static boolean useDynamicColor(Context context) {
+        String prefKey = context.getString(R.string.pref_key_use_dynamic_color);
+        return getProfileSharedPreference(context).getBoolean(prefKey, true);
+    }
 }

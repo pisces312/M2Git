@@ -53,7 +53,7 @@ public class CommitDiffActivity extends BaseCompatActivity {
         + " <script src=\"js/local_commits_diff.js\"></script>"
         + " <link type=\"text/css\" rel=\"stylesheet\" href=\"css/hljs-rainbow.css\" />"
         + " <link type=\"text/css\" rel=\"stylesheet\" href=\"css/local_commits_diff.css\" />"
-        + "</head><body></body>";
+        + "</head><body class=\"%1$s\"></body>";
     private WebView mDiffContent;
     private WebViewJs mJs;
     private ProgressBar mLoading;
@@ -101,8 +101,10 @@ public class CommitDiffActivity extends BaseCompatActivity {
         mDiffContent.addJavascriptInterface(new CodeLoader(), JS_INF);
         // JS 通道要在 loadDataWithBaseURL 之前挂好，否则错过这唯一一次导航的 onPageFinished
         mJs = new WebViewJs(mDiffContent);
-        mDiffContent.loadDataWithBaseURL("file:///android_asset/", HTML_TMPL,
-            "text/html", "utf-8", null);
+        // WebView 不跟随应用内手工主题，用 body class 给 CSS 一个钩子（浅色主题不需要额外规则）
+        String themeClass = Profile.getTheme(this) == 0 ? "theme-light" : "theme-dark";
+        mDiffContent.loadDataWithBaseURL("file:///android_asset/",
+            String.format(HTML_TMPL, themeClass), "text/html", "utf-8", null);
         WebSettings webSettings = mDiffContent.getSettings();
         webSettings.setJavaScriptEnabled(true);
         mDiffContent.setWebChromeClient(new WebChromeClient() {

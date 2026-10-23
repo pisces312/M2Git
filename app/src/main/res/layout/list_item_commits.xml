@@ -29,7 +29,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/default_text"
-            android:textColor="@color/general_gray_text_color"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="@dimen/commit_list_item_id_size" />
 
         <TextView
@@ -50,7 +50,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/default_text"
-                android:textColor="@color/general_gray_text_color"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="@dimen/commit_list_item_author_size"
                 android:textStyle="bold" />
 
@@ -60,7 +60,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="@dimen/general_horizontal_margin"
                 android:text="@string/default_text"
-                android:textColor="@color/general_gray_text_color"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="@dimen/commit_list_item_time_size" />
         </LinearLayout>
     </LinearLayout>

@@ -3,14 +3,14 @@
 
     <item
         android:id="@+id/action_select_root"
-        android:icon="@drawable/ic_action_save"
+        android:icon="@drawable/ic_menu_save"
         android:title="@string/action_select_root_dir"
         app:showAsAction="ifRoom" />
 
     <!-- TODO: allow creating new folders -->
     <!-- item
         android:id="@+id/action_create_new_dir"
-        android:icon="@drawable/ic_content_new"
+        android:icon="@drawable/ic_menu_new"
         app:showAsAction="ifRoom"
         android:title="@string/action_create_new_dir"/ -->
 

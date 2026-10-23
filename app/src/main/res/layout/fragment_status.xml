@@ -43,7 +43,7 @@
             android:layout_width="40dp"
             android:layout_height="3dp"
             android:layout_gravity="center"
-            android:background="@color/general_gray_text_color" />
+            android:background="?attr/colorOutlineVariant" />
     </FrameLayout>
 
     <!-- 下半：变更文件列表（相对路径）。空仓库时本层和分割条一起收起，上半占满。 -->
@@ -63,7 +63,7 @@
             android:paddingTop="@dimen/general_padding"
             android:paddingRight="@dimen/general_padding_larger"
             android:paddingBottom="@dimen/general_padding"
-            android:textColor="@color/general_gray_text_color"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="@dimen/status_files_header_text_size" />
 
         <ListView

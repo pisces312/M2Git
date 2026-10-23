@@ -81,7 +81,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="@dimen/general_padding"
-                android:textColor="@color/general_gray_text_color"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="@dimen/repo_filter_text_size" />
 
             <TextView
@@ -124,7 +124,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:padding="@dimen/general_padding_larger"
-                android:textColor="@color/general_gray_text_color"
+                android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="@dimen/repo_list_empty_text_size"
                 android:visibility="gone" />
         </FrameLayout>

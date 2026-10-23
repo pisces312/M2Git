@@ -6,6 +6,8 @@ import android.content.Context
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
 import androidx.core.os.LocaleListCompat
+import com.google.android.material.color.DynamicColors
+import com.google.android.material.color.DynamicColorsOptions
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.conscrypt.Conscrypt
 import org.eclipse.jgit.transport.CredentialsProvider
@@ -63,6 +65,14 @@ open class MainApplication : Application() {
         mContext = applicationContext
         setAppVersionPref()
         migrateLegacyLanguageSetting()
+        // 动态取色（Material You）：默认开，设置页可关。必须在任何 Activity 创建前注册；
+        // precondition 在每次 Activity 创建时求值，所以切换开关后重建返回栈即可生效。
+        DynamicColors.applyToActivitiesIfAvailable(
+            this,
+            DynamicColorsOptions.Builder()
+                .setPrecondition { _, _ -> Profile.useDynamicColor(this) }
+                .build()
+        )
 
         try {
             mCredentialsProvider =

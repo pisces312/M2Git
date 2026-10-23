@@ -1,6 +1,6 @@
 # Material 3 主题化方案（路线甲：保留 View 栈）（2026-10-23）
 
-状态：**方案，未实施**。本文只描述改造路径与风险，不含代码。
+状态：**P0 + P1 已实施（2026-10-23），P2 / P3 未做**。实施细节与偏差见 §10。
 路线甲 = 继续用 XML + 经典 View 栈，把 AppCompat/Holo 风格的主题换成 Material 3（M3）视觉；
 不做 Compose 重写（路线乙）。
 
@@ -47,8 +47,10 @@
 ### P0 主题骨架（先只换骨架，不改配色）
 
 1. `themes.xml` 新增 M3 主题：
-   - `Theme.M2Git.M3`（parent `Theme.Material3.Light.DarkActionBar`）
+   - `Theme.M2Git.M3`（parent `Theme.Material3.Light`）
    - `Theme.M2Git.M3.Dark`（parent `Theme.Material3.Dark`）
+   - 注：`Theme.Material3.Light.DarkActionBar` **不存在**（原方案写错，material 1.12.0 里没有这条），
+     M3 的 app bar 本身就是 surface 色，深色标题栏不符合 M3 规范。
 2. 把 `AppTheme` / `DarkAppTheme` 的 parent 指到上面两个新主题，**保留这两个类名**：
    `Profile.getThemeResource()`、`BaseCompatActivity.setTheme()` 以及各 Activity 都不用改。
 3. 先保留现有 ActionBar 形态（本项目的 5 个页面用 `getSupportActionBar()` 操作标题/菜单），
@@ -121,12 +123,12 @@
 ## 6. 验收清单
 
 - [ ] 13 个 Activity 冷启动无崩溃、无白闪
-- [ ] 浅色/深色（若 P1 选乙，再加"跟随系统"）
-- [ ] 动态取色开/关
-- [ ] 仓库列表：短按进详情、长按出浮层、浮层定位与边缘翻转
-- [ ] sync：列表页与详情页的全屏进度 + 结果对话框
-- [ ] 搜索条展开/收起、标签筛选条、排序弹窗
-- [ ] 文件查看器与 diff 页面在深浅主题下的可读性
+- [x] 浅色/深色（主要页面逐页截图，清单见 §10）
+- [x] 动态取色开/关（开 = 壁纸蓝，关 = M3 基线紫）
+- [x] 仓库列表：短按进详情、长按出浮层（边缘翻转未单独测）
+- [ ] sync：列表页与详情页的全屏进度 + 结果对话框（M3 后未复测）
+- [ ] 搜索条展开/收起、标签筛选条、排序弹窗（M3 后未复测）
+- [x] 文件查看器与 diff 页面在深浅主题下的可读性
 - [ ] 中/英文文案不截断（标题宽度基线见 AGENTS.md §仓库详情页工具栏）
 - [ ] APK 体积前后对比（arm64 debug 与 release 签名包）
 
@@ -151,3 +153,31 @@ local-dream 是 Compose + Material3 实现。本项目只借鉴其**视觉规则
 1. 深色主题是保留"手动 Light/Dark 两套"，还是改成"跟随系统 + 手动覆盖"（影响 P1 方案选择）。
 2. 动态取色默认开还是默认关（影响默认观感与截图基线）。
 3. 是否允许删除 Holo 时代的 ActionBar/PopupMenu/ProgressBar 自定义 drawable（影响可回退程度）。
+
+## 10. 实施记录（P0 + P1，2026-10-23）
+
+### 实际改动
+
+| 项 | 落地方式 |
+|---|---|
+| 主题骨架 | `AppTheme` → `Theme.M2Git.M3`（parent `Theme.Material3.Light`），`DarkAppTheme` → `Theme.M2Git.M3.Dark`（parent `Theme.Material3.Dark`）。两个类名、`Profile.getThemeResource()`、`setTheme()` 全不动 |
+| 主题内旧属性 | `bt_branch_name_bg/text_color`、`pager_title_strip_background`、`mgit_drawer_*` 在两套 M3 主题里重指到 M3 role（`colorPrimaryContainer` / `colorSurfaceContainer` / `colorOnSurface`），布局层零改动 |
+| 图标主题化 | **AppCompat 不会按 `colorControlNormal` 自动 tint menu icon**（实测）。新增 11 个 `ic_menu_*` 包装 drawable（`<bitmap android:tint="?attr/colorOnSurface">`），menu XML 改引包装；`ic_action_sort` / `ic_action_filter_tags` 直接在根节点加 tint；branch/tag 图标改走 `?attr/ic_branch_l` / `?attr/ic_tag_l`，删除 `RepoDetailActivity` / `BranchChooserActivity` 里硬编码的 `ic_branch_w` / `ic_tag_w` |
+| 系统栏 | `statusBarColor` / `navigationBarColor` = `?attr/colorSurface`，浅色主题开 `windowLightStatusBar` / `windowLightNavigationBar`；`windowDisablePreview=true` 保留 |
+| 硬编码色 | 布局里的灰字/分隔线/搜索框文字色改成 `?attr/colorOnSurface(Variant)`、`?attr/colorOutlineVariant`；`#2196F3`、`#000000` 等改 role。**没有**新建 `colors_m3.xml` 别名层（见偏差 1） |
+| 动态取色 | `MainApplication.onCreate` 调 `DynamicColors.applyToActivitiesIfAvailable(...)` + `DynamicColorsOptions.Builder().setPrecondition(...)` → `Profile.useDynamicColor(context)`（默认 true）；设置页新增「动态取色 / Dynamic Colour」开关；切换时重建 Activity 栈 |
+| diff 页 | WebView 不跟随手工主题：`CommitDiffActivity` 按 `Profile.getTheme()` 给 `<body>` 挂 `theme-dark`，CSS 补 `.info-block` / 浅克隆说明块的深色覆盖 |
+
+### 与方案的偏差
+
+1. **没有 `colors_m3.xml` 别名层**：直接把布局引用改成 `?attr/colorXxx`，diff 更小、少一层间接；代价是 role 名散在布局里而不是集中定义。
+2. **没有 `Theme.Material3.Light.DarkActionBar`**：该样式在 material 1.12.0 里不存在；M3 app bar 本身是 surface 色，深色标题栏反而不符合规范。
+3. **P2/P3 全部未做**：长按浮层仍是固定深色 pill（`#E62D2D2D` + 白色图标）、选中行高亮仍是 `pressed_sgit`（`#CC33B5E5` 半透明，两套主题下均可读）、`PagerTitleStrip` 仍是 framework 控件、`AlertDialog.Builder` 未换 `MaterialAlertDialogBuilder`。
+
+### 已验收（模拟器 1080×2400 @420dpi，深/浅各一轮截图）
+
+仓库列表、详情页 Files / Commits / Status、抽屉、溢出菜单、动作模式（长按提交）、文件查看器、提交 diff、分支选择、导入/浏览目录、设置页、主题选择弹窗、显示选项弹窗、checkout 弹窗、长按浮层工具条；动态取色开/关各截一轮（开 = 壁纸蓝，关 = M3 基线紫，切换即时生效）。
+
+### 回退
+
+旧 `Theme.Sgit` / `Theme.SgitDark` 与整套 Holo drawable 原样保留，把 `AppTheme` / `DarkAppTheme` 的 parent 指回去即可。
