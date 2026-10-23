@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  长按浮动工具条的气泡底：深色圆角矩形。用固定深色而非主题色，是为了让两套主题下
+  白色图标都清晰；与系统 tooltip / 深底气泡观感一致。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#E62D2D2D" />
+    <corners android:radius="12dp" />
+</shape>

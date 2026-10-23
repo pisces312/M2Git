@@ -31,6 +31,7 @@ import java.util.List;
 import ts.realms.m2git.R;
 import ts.realms.m2git.core.command.MAsyncTask;
 import ts.realms.m2git.core.command.RepoOperationDelegate;
+import ts.realms.m2git.core.command.SyncHost;
 import ts.realms.m2git.core.models.Repo;
 import ts.realms.m2git.core.models.Tag;
 import ts.realms.m2git.local.database.RepoDbManager;
@@ -43,7 +44,7 @@ import ts.realms.m2git.ui.screens.commitDiff.CommitsFragment;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity;
 import ts.realms.m2git.ui.viewModels.BaseFragment;
 
-public class RepoDetailActivity extends BaseCompatActivity {
+public class RepoDetailActivity extends BaseCompatActivity implements SyncHost {
 
     private static final int FILES_FRAGMENT_INDEX = 0;
     private static final int COMMITS_FRAGMENT_INDEX = 1;

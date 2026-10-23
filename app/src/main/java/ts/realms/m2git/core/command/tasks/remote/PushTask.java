@@ -24,14 +24,25 @@ public class PushTask extends RepoRemoteOpTask implements MAsyncTask.AsyncTaskCa
     private final boolean mForcePush;
     private final String mRemote;
     private final StringBuffer resultMsg = new StringBuffer();
+    /**
+     * true = 不在 onPostExecute 里弹 push 结果对话框。仅 sync 用（它有自己的统一结果对话框，
+     * 避免双弹）；默认 false，详情页 Push 等既有调用者行为不变。
+     */
+    private final boolean mSuppressResultDialog;
 
     public PushTask(Repo repo, String remote, boolean pushAll, boolean forcePush,
                     AsyncTaskCallback callback) {
+        this(repo, remote, pushAll, forcePush, callback, false);
+    }
+
+    public PushTask(Repo repo, String remote, boolean pushAll, boolean forcePush,
+                    AsyncTaskCallback callback, boolean suppressResultDialog) {
         super(repo);
         mRemote = remote;
         mCallback = callback;
         mPushAll = pushAll;
         mForcePush = forcePush;
+        mSuppressResultDialog = suppressResultDialog;
     }
 
     @Override
@@ -63,7 +74,7 @@ public class PushTask extends RepoRemoteOpTask implements MAsyncTask.AsyncTaskCa
         if (mCallback != null) {
             mCallback.onPostExecute(isSuccess);
         }
-        if (isSuccess) {
+        if (isSuccess && !mSuppressResultDialog) {
             BasicFunctions.getActiveActivity().showMessageDialog(
                 R.string.dialog_push_result, resultMsg.toString());
         }
@@ -175,7 +186,7 @@ public class PushTask extends RepoRemoteOpTask implements MAsyncTask.AsyncTaskCa
 
     @Override
     public RepoRemoteOpTask getNewTask() {
-        return new PushTask(mRepo, mRemote, mPushAll, mForcePush, mCallback);
+        return new PushTask(mRepo, mRemote, mPushAll, mForcePush, mCallback, mSuppressResultDialog);
     }
 
 }

@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.SearchView;
@@ -27,6 +28,7 @@ import java.util.List;
 import timber.log.Timber;
 import ts.realms.m2git.MainApplication;
 import ts.realms.m2git.R;
+import ts.realms.m2git.core.command.SyncHost;
 import ts.realms.m2git.core.command.tasks.remote.CloneTask;
 import ts.realms.m2git.core.models.Repo;
 import ts.realms.m2git.core.models.Tag;
@@ -46,12 +48,19 @@ import ts.realms.m2git.ui.components.views.TagChipRenderer;
 import ts.realms.m2git.ui.screens.repoDetail.RepoDetailActivity;
 import ts.realms.m2git.ui.screens.settings.UserSettingsActivity;
 
-public class RepoListActivity extends BaseCompatActivity {
+public class RepoListActivity extends BaseCompatActivity implements SyncHost {
 
     private static final int REQUEST_IMPORT_REPO = 0;
     private Context mContext;
     private RepoListAdapter mRepoListAdapter;
     private ActivityMainBinding activityMainBinding;
+
+    /**
+     * 最近一次 ACTION_DOWN 的屏幕坐标，供长按弹出的浮动工具条定位到手指处。
+     * onItemLongClick 本身不带坐标，只能靠这个 OnTouchListener 旁路记录。
+     */
+    private float mLastTouchRawX;
+    private float mLastTouchRawY;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,6 +90,14 @@ public class RepoListActivity extends BaseCompatActivity {
         mRepoListAdapter.queryAllRepo();
         activityMainBinding.repoList.setOnItemClickListener(mRepoListAdapter);
         activityMainBinding.repoList.setOnItemLongClickListener(mRepoListAdapter);
+        // 旁路记录手指按下坐标，供长按浮动工具条定位；返回 false 不消费事件，点击/长按照常。
+        activityMainBinding.repoList.setOnTouchListener((v, event) -> {
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                mLastTouchRawX = event.getRawX();
+                mLastTouchRawY = event.getRawY();
+            }
+            return false;
+        });
         activityMainBinding.repoList.setEmptyView(activityMainBinding.repoListEmpty);
         // 列表每次重算后同步顶部筛选条：标签在别处被改名/删除时，这里跟着变
         mRepoListAdapter.setOnListRefreshed(this::renderFilterBar);
@@ -347,6 +364,24 @@ public class RepoListActivity extends BaseCompatActivity {
 
     public void finish() {
         rawfinish();
+    }
+
+    // ---- 长按浮动工具条：坐标 + SyncHost ----
+
+    public float getLastTouchRawX() {
+        return mLastTouchRawX;
+    }
+
+    public float getLastTouchRawY() {
+        return mLastTouchRawY;
+    }
+
+    /** {@link SyncHost} 实现：sync 可能更新了最新提交信息，重查列表让行刷新。 */
+    @Override
+    public void reset() {
+        if (mRepoListAdapter != null) {
+            mRepoListAdapter.refresh();
+        }
     }
 
     private void initUpdatedSSL() {

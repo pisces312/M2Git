@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  长按仓库行弹出的浮动工具条：横向一排图标按钮。纯图标无文字（加文字就得竖排、等于退回旧列表菜单）。
+  深色气泡底 + 白色图标，见 bg_repo_toolbar_popup.xml。
+  按钮固定 6 个，「打开远程」由代码按 repoHasHttpRemote 切换可见性。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/repoToolbarRoot"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_repo_toolbar_popup"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="4dp"
+    android:paddingTop="4dp"
+    android:paddingEnd="4dp"
+    android:paddingBottom="4dp">
+
+    <ImageButton
+        android:id="@+id/btnSync"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/label_sync"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_sync" />
+
+    <ImageButton
+        android:id="@+id/btnRename"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/dialog_rename_repo_title"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_mode_edit" />
+
+    <ImageButton
+        android:id="@+id/btnDelete"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/label_delete"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_delete" />
+
+    <ImageButton
+        android:id="@+id/btnShortcut"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/dialog_create_shortcut"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_shortcut" />
+
+    <ImageButton
+        android:id="@+id/btnEditTags"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/label_edit_tags"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_action_filter_tags" />
+
+    <ImageButton
+        android:id="@+id/btnOpenRemote"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/dialog_open_remote"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_open_in_new" />
+
+</LinearLayout>

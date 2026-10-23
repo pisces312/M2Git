@@ -10,18 +10,24 @@ import android.content.pm.ResolveInfo;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
 import android.database.Cursor;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Parcelable;
+import android.util.DisplayMetrics;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -43,6 +49,7 @@ import java.util.Set;
 
 import timber.log.Timber;
 import ts.realms.m2git.R;
+import ts.realms.m2git.core.command.SyncRunner;
 import ts.realms.m2git.core.models.Repo;
 import ts.realms.m2git.core.models.Tag;
 import ts.realms.m2git.local.database.RepoContract;
@@ -531,6 +538,11 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         mActivity.runOnUiThread(this::requery);
     }
 
+    /** 供宿主主动刷新（如列表页 sync 结束后更新最新提交信息）；保留当前搜索/筛选态。 */
+    public void refresh() {
+        mActivity.runOnUiThread(this::requery);
+    }
+
     /**
      * 标签字典或某个仓库的标签关联变了。标签不参与排序键，也不影响仓库的可见性
      * （除非筛选态下这一行被筛掉），所以没必要重算整表 —— 只更新内存里的标签名并重绘那一行，
@@ -606,92 +618,158 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         final Repo repo = getItem(position);
         if (repo == null) return false;
         if (!RepoContract.REPO_STATUS_NULL.equals(repo.getRepoStatus())) return false;
-        Context context = getContext();
-        if (context instanceof BaseCompatActivity) {
-            showRepoOptionsDialog((BaseCompatActivity) context, repo);
-        }
+        showRepoToolbarPopup(view, repo);
         return true;
     }
 
-    private void showRepoOptionsDialog(final BaseCompatActivity context, final Repo repo) {
+    /**
+     * 长按弹出浮动图标工具条（PopupWindow）。它是独立窗口，不属于 ListView 的行视图树，
+     * 因此不会触发「行内可聚焦后代导致整行短按/长按失效」那个坑（见 newView 里的注释）。
+     * <p>
+     * 定位到手指处：坐标取自 {@link RepoListActivity} 旁路记录的 ACTION_DOWN raw 值，
+     * 再用 anchor 的 screen/window 两处位置换算出状态栏偏移，避免浮层整体上移一条状态栏高度。
+     */
+    private void showRepoToolbarPopup(final View anchorView, final Repo repo) {
+        final RepoListActivity context = mActivity;
+        View content = LayoutInflater.from(context).inflate(R.layout.repo_toolbar_popup, null);
 
-        // 位置索引要和 R.array.dialog_choose_repo_action_items 一一对应（两种语言同序）；
-        // 第 4 项原来是「移动到分组」，现在是「编辑标签」，位置不变。
-        BaseCompatActivity.onOptionDialogClicked[] dialog =
-            new BaseCompatActivity.onOptionDialogClicked[]{
-                () -> showRenameRepoDialog(context, repo),
-                () -> showRemoveRepoDialog(context, repo),
-                () -> createShortcut(context, repo),
-                () -> showEditTagsDialog(context, repo),
-                null};
+        final PopupWindow popup = new PopupWindow(content,
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true);
+        // 透明背景 drawable：保证 focusable 弹窗在点击外部时正常消失。
+        popup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        popup.setOutsideTouchable(true);
+        popup.setFocusable(true);
+
+        ImageButton btnSync = content.findViewById(R.id.btnSync);
+        ImageButton btnRename = content.findViewById(R.id.btnRename);
+        ImageButton btnDelete = content.findViewById(R.id.btnDelete);
+        ImageButton btnShortcut = content.findViewById(R.id.btnShortcut);
+        ImageButton btnEditTags = content.findViewById(R.id.btnEditTags);
+        ImageButton btnOpenRemote = content.findViewById(R.id.btnOpenRemote);
+
+        // 与旧菜单一致：仅 http 远程才出现「打开远程」。
         final String remoteRaw = repo.getRemoteURL();
-        final String remoteRawLowerCase = repo.getRemoteURL().toLowerCase();
+        final String remoteRawLowerCase = remoteRaw == null ? "" : remoteRaw.toLowerCase();
         boolean repoHasHttpRemote =
             !remoteRawLowerCase.equals("local repository") && remoteRawLowerCase.contains("http");
-        if (repoHasHttpRemote) {
-            dialog[4] = () -> {
+        btnOpenRemote.setVisibility(repoHasHttpRemote ? View.VISIBLE : View.GONE);
 
-                //remove git extension if present
-                String repoUrl = remoteRaw.endsWith(context.getString(R.string.git_extension)) ?
-                    remoteRaw.substring(0, remoteRaw.lastIndexOf('.')) : remoteRaw;
+        btnSync.setOnClickListener(v -> {
+            popup.dismiss();
+            new SyncRunner(repo, context).run();
+        });
+        btnRename.setOnClickListener(v -> {
+            popup.dismiss();
+            showRenameRepoDialog(context, repo);
+        });
+        btnDelete.setOnClickListener(v -> {
+            popup.dismiss();
+            showRemoveRepoDialog(context, repo);
+        });
+        btnShortcut.setOnClickListener(v -> {
+            popup.dismiss();
+            createShortcut(context, repo);
+        });
+        btnEditTags.setOnClickListener(v -> {
+            popup.dismiss();
+            showEditTagsDialog(context, repo);
+        });
+        btnOpenRemote.setOnClickListener(v -> {
+            popup.dismiss();
+            openRemoteUrl(context, repo);
+        });
 
-                Intent openUrlIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(repoUrl));
+        // 先测量再定位：WRAP_CONTENT 的宽高只有 measure 之后才拿得到。
+        content.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        int popupWidth = content.getMeasuredWidth();
+        int popupHeight = content.getMeasuredHeight();
 
-                //get activities that open this url
-                List<ResolveInfo> activitiesToOpenUrlIntentList =
-                    context.getPackageManager().queryIntentActivities(openUrlIntent,
-                        PackageManager.MATCH_ALL);
+        float rawX = context.getLastTouchRawX();
+        float rawY = context.getLastTouchRawY();
 
-                List<Intent> intentList = new ArrayList<Intent>();
+        // showAtLocation 用的是「窗口坐标系」，raw 坐标是「屏幕坐标系」，两者相差一个状态栏偏移。
+        int[] screenLoc = new int[2];
+        int[] windowLoc = new int[2];
+        anchorView.getLocationOnScreen(screenLoc);
+        anchorView.getLocationInWindow(windowLoc);
+        int windowOffsetX = screenLoc[0] - windowLoc[0];
+        int windowOffsetY = screenLoc[1] - windowLoc[1];
 
-                //Get application info to exclude it from the intent chooser
-                ApplicationInfo applicationInfo = context.getApplicationInfo();
-                int stringId = applicationInfo.labelRes;
-                String applicationName = (stringId == 0) ?
-                    applicationInfo.nonLocalizedLabel.toString().toLowerCase() :
-                    context.getString(stringId).toLowerCase();
+        DisplayMetrics dm = context.getResources().getDisplayMetrics();
+        int margin = dp(8);
+        int gap = dp(8);
 
-                if (!activitiesToOpenUrlIntentList.isEmpty()) {
-                    for (ResolveInfo resolveInfo : activitiesToOpenUrlIntentList) {
-                        String packageName = resolveInfo.activityInfo.packageName;
-                        //create and add intent from other applications
-                        //this way MGit doesn't show up to open the remote url
-                        if (!packageName.toLowerCase().contains(applicationName)) {
-                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(repoUrl));
-                            intent.setComponent(new ComponentName(packageName,
-                                resolveInfo.activityInfo.name));
-                            intent.setAction(Intent.ACTION_VIEW);
-                            intent.setPackage(packageName);
-                            intentList.add(intent);
-                        }
-                    }
-                    if (!intentList.isEmpty()) {
-                        String title =
-                            String.format(context.getString(R.string.dialog_open_remote_title),
-                                repo.getDisplayName());
-                        Intent chooserIntent = Intent.createChooser(intentList.remove(0), title);
-                        chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS,
-                            intentList.toArray(new Parcelable[intentList.size()]));
-                        context.startActivity(chooserIntent);
-                    } else {
-                        Timber.tag(TAG_CLASS).i(context.getString(
-                            R.string.dialog_open_remote_no_app_available));
-                        Toast.makeText(context, R.string.dialog_open_remote_no_app_available,
-                            Toast.LENGTH_LONG).show();
-                    }
+        // 水平：以手指为中心，再夹取到屏幕内。
+        int x = (int) (rawX - windowOffsetX) - popupWidth / 2;
+        x = Math.max(margin, Math.min(x, dm.widthPixels - popupWidth - margin));
+
+        // 垂直：优先浮在手指上方；上方放不下则翻到手指下方，最后夹取到屏幕内。
+        int fingerY = (int) (rawY - windowOffsetY);
+        int y = fingerY - popupHeight - gap;
+        if (y < margin) {
+            y = fingerY + gap;
+        }
+        y = Math.max(margin, Math.min(y, dm.heightPixels - popupHeight - margin));
+
+        popup.showAtLocation(anchorView, Gravity.TOP | Gravity.START, x, y);
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getContext().getResources().getDisplayMetrics().density);
+    }
+
+    /** 从旧 showRepoOptionsDialog 抽出的「打开远程」逻辑，供浮层工具条复用。 */
+    private void openRemoteUrl(BaseCompatActivity context, final Repo repo) {
+        final String remoteRaw = repo.getRemoteURL();
+        //remove git extension if present
+        String repoUrl = remoteRaw.endsWith(context.getString(R.string.git_extension)) ?
+            remoteRaw.substring(0, remoteRaw.lastIndexOf('.')) : remoteRaw;
+
+        Intent openUrlIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(repoUrl));
+
+        //get activities that open this url
+        List<ResolveInfo> activitiesToOpenUrlIntentList =
+            context.getPackageManager().queryIntentActivities(openUrlIntent,
+                PackageManager.MATCH_ALL);
+
+        List<Intent> intentList = new ArrayList<Intent>();
+
+        //Get application info to exclude it from the intent chooser
+        ApplicationInfo applicationInfo = context.getApplicationInfo();
+        int stringId = applicationInfo.labelRes;
+        String applicationName = (stringId == 0) ?
+            applicationInfo.nonLocalizedLabel.toString().toLowerCase() :
+            context.getString(stringId).toLowerCase();
+
+        if (!activitiesToOpenUrlIntentList.isEmpty()) {
+            for (ResolveInfo resolveInfo : activitiesToOpenUrlIntentList) {
+                String packageName = resolveInfo.activityInfo.packageName;
+                //create and add intent from other applications
+                //this way MGit doesn't show up to open the remote url
+                if (!packageName.toLowerCase().contains(applicationName)) {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(repoUrl));
+                    intent.setComponent(new ComponentName(packageName,
+                        resolveInfo.activityInfo.name));
+                    intent.setAction(Intent.ACTION_VIEW);
+                    intent.setPackage(packageName);
+                    intentList.add(intent);
                 }
-            };
+            }
+            if (!intentList.isEmpty()) {
+                String title =
+                    String.format(context.getString(R.string.dialog_open_remote_title),
+                        repo.getDisplayName());
+                Intent chooserIntent = Intent.createChooser(intentList.remove(0), title);
+                chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS,
+                    intentList.toArray(new Parcelable[intentList.size()]));
+                context.startActivity(chooserIntent);
+            } else {
+                Timber.tag(TAG_CLASS).i(context.getString(
+                    R.string.dialog_open_remote_no_app_available));
+                Toast.makeText(context, R.string.dialog_open_remote_no_app_available,
+                    Toast.LENGTH_LONG).show();
+            }
         }
-
-        List<String> stringList = new ArrayList<>(5);
-        stringList.addAll(Arrays.asList(context.getResources().getStringArray(
-            R.array.dialog_choose_repo_action_items)));
-        stringList.add(context.getString(R.string.label_edit_tags));
-        if (repoHasHttpRemote) {
-            stringList.add(context.getString(R.string.dialog_open_remote));
-        }
-        context.showOptionsDialog(R.string.dialog_choose_option,
-            stringList.toArray(new String[0]), dialog);
     }
 
     private void showEditTagsDialog(final BaseCompatActivity context, final Repo repo) {

@@ -1,10 +1,13 @@
 package ts.realms.m2git.ui.screens.main;
 
 import android.content.ActivityNotFoundException;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -13,8 +16,12 @@ import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -46,6 +53,14 @@ public class BaseCompatActivity extends AppCompatActivity {
     private static final int MGIT_PERMISSIONS_REQUEST = 123;
     private static final int SIZE = 100 << 20;
     private ImageLoader mImageLoader;
+
+    // sync 专用的全屏进度对话框（仅 sync 使用；详情页 pull/push/fetch 仍走各自的底部卡片）。
+    // 放在基类，列表页与详情页共享同一套实现，保证两处观感一致。
+    private Dialog mSyncProgressDialog;
+    private TextView mSyncProgressMsg;
+    private TextView mSyncLeftHint;
+    private TextView mSyncRightHint;
+    private ProgressBar mSyncProgressBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -197,6 +212,69 @@ public class BaseCompatActivity extends AppCompatActivity {
         builder.setTitle(title).setMessage(msg).setPositiveButton(R.string.label_ok,
             new DummyDialogListener()).show();
     }
+
+    /* Sync 全屏进度对话框 Start */
+
+    /**
+     * 显示 sync 的全屏进度对话框。幂等：已存在则只更新初始文案并把进度归零。
+     * 所有 UI 操作都 post 到主线程；Activity 已 finishing/destroyed 时直接跳过，
+     * 避免 sync 在页面关闭后才回调导致 BadTokenException。
+     */
+    public void showSyncProgress(int initMsgRes) {
+        runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            if (mSyncProgressDialog == null) {
+                mSyncProgressDialog = new Dialog(this);
+                mSyncProgressDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+                mSyncProgressDialog.setContentView(R.layout.dialog_sync_progress);
+                mSyncProgressDialog.setCancelable(false);
+                mSyncProgressDialog.setCanceledOnTouchOutside(false);
+                Window window = mSyncProgressDialog.getWindow();
+                if (window != null) {
+                    window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT);
+                    window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                }
+                mSyncProgressMsg = mSyncProgressDialog.findViewById(R.id.syncProgressMsg);
+                mSyncLeftHint = mSyncProgressDialog.findViewById(R.id.syncLeftHint);
+                mSyncRightHint = mSyncProgressDialog.findViewById(R.id.syncRightHint);
+                mSyncProgressBar = mSyncProgressDialog.findViewById(R.id.syncProgress);
+            }
+            mSyncProgressMsg.setText(initMsgRes);
+            mSyncLeftHint.setText(R.string.progress_left_init);
+            mSyncRightHint.setText(R.string.progress_right_init);
+            if (mSyncProgressBar != null) {
+                mSyncProgressBar.setProgress(0);
+            }
+            if (!mSyncProgressDialog.isShowing()) {
+                mSyncProgressDialog.show();
+            }
+        });
+    }
+
+    /** 更新进度对话框文案与进度条；percent 夹取到 0..100。 */
+    public void updateSyncProgress(String msg, String leftHint, String rightHint, int percent) {
+        runOnUiThread(() -> {
+            if (mSyncProgressDialog == null || !mSyncProgressDialog.isShowing()) return;
+            if (msg != null) mSyncProgressMsg.setText(msg);
+            if (leftHint != null) mSyncLeftHint.setText(leftHint);
+            if (rightHint != null) mSyncRightHint.setText(rightHint);
+            if (mSyncProgressBar != null) {
+                mSyncProgressBar.setProgress(Math.max(0, Math.min(100, percent)));
+            }
+        });
+    }
+
+    /** 关闭进度对话框。 */
+    public void dismissSyncProgress() {
+        runOnUiThread(() -> {
+            if (mSyncProgressDialog != null && mSyncProgressDialog.isShowing()) {
+                mSyncProgressDialog.dismiss();
+            }
+        });
+    }
+
+    /* Sync 全屏进度对话框 End */
 
     public void showOptionsDialog(int title, final int option_names,
                                   final onOptionDialogClicked[] option_listeners) {
