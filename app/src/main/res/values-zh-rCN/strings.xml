@@ -72,6 +72,10 @@
     <string name="title_activity_view_file">文件：</string>
     <string name="title_activity_commit_diff">比较差异：</string>
     <string name="title_activity_file_diff">文件差异：%1$s</string>
+
+    <!-- 差异页：该提交是浅克隆的边界，父提交没有下载到本地 -->
+    <string name="diff_shallow_boundary_title">浅克隆边界提交</string>
+    <string name="diff_shallow_boundary_hint">本地没有下载这个提交之前的历史，没有可比较的父提交，因此无法显示改动内容。</string>
     <string name="title_section1">第1部分</string>
     <string name="title_section2">第2部分</string>
     <string name="title_section3">第3部分</string>

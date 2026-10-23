@@ -65,6 +65,8 @@ public class CommitDiffActivity extends BaseCompatActivity {
     private RevCommit mCommit;
     private List<String> mDiffStrs;
     private List<DiffEntry> mDiffEntries;
+    private CommitDiffTask mDiffTask;
+    private boolean mShallowBoundary;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -261,7 +263,7 @@ public class CommitDiffActivity extends BaseCompatActivity {
         @JavascriptInterface
         public void getDiffEntries() {
             String oldCommit = mOldCommit != null ? mOldCommit : (mNewCommit + "^");
-            CommitDiffTask diffTask = new CommitDiffTask(mRepo, oldCommit,
+            mDiffTask = new CommitDiffTask(mRepo, oldCommit,
                 mNewCommit, new CommitDiffTask.CommitDiffResult() {
                 @Override
                 public void pushResult(List<DiffEntry> diffEntries,
@@ -269,12 +271,28 @@ public class CommitDiffActivity extends BaseCompatActivity {
                     mDiffEntries = diffEntries;
                     mDiffStrs = diffStrs;
                     mCommit = commit;
+                    mShallowBoundary = mDiffTask.isShallowBoundary();
                     mLoading.setVisibility(View.GONE);
                     // pushResult 由 MAsyncTask 经 mainLooper post 送达（onPostExecute），已在主线程
                     mJs.eval("notifyEntriesReady();");
                 }
             }, mShowDescription, mDiffPath);
-            diffTask.executeTask();
+            mDiffTask.executeTask();
+        }
+
+        @JavascriptInterface
+        public boolean isShallowBoundary() {
+            return mShallowBoundary;
+        }
+
+        @JavascriptInterface
+        public String getShallowBoundaryTitle() {
+            return getString(R.string.diff_shallow_boundary_title);
+        }
+
+        @JavascriptInterface
+        public String getShallowBoundaryHint() {
+            return getString(R.string.diff_shallow_boundary_hint);
         }
 
         @JavascriptInterface

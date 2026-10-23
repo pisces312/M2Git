@@ -37,3 +37,17 @@ pre code {
     border: 1px solid #999;
     box-shadow: 0px 0px 5px 1px rgba(0, 0, 0, 0.2);
 }
+
+/* 浅克隆边界提交的说明块：沿用 info-block 的底色，靠左侧色条区分「这不是错误」 */
+.info-block.shallow-boundary {
+    background: #FFF8E1;
+    border-left: 3px solid #E0A800;
+    color: #4A3B00;
+}
+.shallow-boundary-title {
+    font-weight: bold;
+    padding-bottom: 4px;
+}
+.shallow-boundary-hint {
+    line-height: 16px;
+}

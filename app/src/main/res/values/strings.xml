@@ -76,6 +76,10 @@
     <string name="title_activity_view_file">File: </string>
     <string name="title_activity_commit_diff">Diff:   </string>
     <string name="title_activity_file_diff">File diff: %1$s</string>
+
+    <!-- Diff page: the commit is the boundary of a shallow clone, its parent was never fetched -->
+    <string name="diff_shallow_boundary_title">Shallow clone boundary</string>
+    <string name="diff_shallow_boundary_hint">The history before this commit was not downloaded, so there is no parent commit to compare it with and no diff can be shown.</string>
     <string name="title_section1">Section 1</string>
     <string name="title_section2">Section 2</string>
     <string name="title_section3">Section 3</string>

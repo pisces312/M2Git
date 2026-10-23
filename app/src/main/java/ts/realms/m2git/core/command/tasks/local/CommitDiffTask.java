@@ -36,6 +36,7 @@ public class CommitDiffTask extends RepoOpTask implements MAsyncTask.AsyncTaskDo
     private Iterable<RevCommit> mCommits;
     private DiffFormatter mDiffFormatter;
     private ByteArrayOutputStream mDiffOutput;
+    private boolean mShallowBoundary;
 
     public CommitDiffTask(Repo repo, String oldCommit, String newCommit,
                           CommitDiffResult callback, boolean showDescription) {
@@ -118,13 +119,23 @@ public class CommitDiffTask extends RepoOpTask implements MAsyncTask.AsyncTaskDo
             mDiffFormatter = new DiffFormatter(mDiffOutput);
             mDiffFormatter.setRepository(repo);
 
-            AbstractTreeIterator mOldCommitTreeIterator = mRepo.isInitialCommit(mNewCommit) ?
-                new EmptyTreeIterator() : getTreeIterator(repo, mOldCommit);
+            mShallowBoundary = mPathFilter == null && mRepo.isShallowBoundary(mNewCommit);
+            if (mShallowBoundary) {
+                // 浅克隆边界：本地没有父提交，JGit 又把父提交数归零，于是 isInitialCommit() 为 true，
+                // 走 EmptyTreeIterator 就成了「整个仓库全部新增」（实测 467 文件 / 2MB diff 文本 /
+                // 页面卡十几秒）。这里不再伪造 diff，直接给空结果，由界面显示提示文案。
+                // 单文件模式（mPathFilter != null）不走这条：只渲染一个文件，代价可以接受，
+                // 且「这个文件当时是什么样」对只读浏览是有用的。
+                mDiffEntries = new ArrayList<>();
+            } else {
+                AbstractTreeIterator mOldCommitTreeIterator = mRepo.isInitialCommit(mNewCommit) ?
+                    new EmptyTreeIterator() : getTreeIterator(repo, mOldCommit);
 
-            AbstractTreeIterator mNewCommitTreeIterator = getTreeIterator(repo, mNewCommit);
-            mDiffEntries = mDiffFormatter.scan(mOldCommitTreeIterator, mNewCommitTreeIterator);
-            if (mPathFilter != null) {
-                mDiffEntries = filterByPath(mDiffEntries, mPathFilter);
+                AbstractTreeIterator mNewCommitTreeIterator = getTreeIterator(repo, mNewCommit);
+                mDiffEntries = mDiffFormatter.scan(mOldCommitTreeIterator, mNewCommitTreeIterator);
+                if (mPathFilter != null) {
+                    mDiffEntries = filterByPath(mDiffEntries, mPathFilter);
+                }
             }
 
             if (mShowDescription) {
@@ -142,6 +153,14 @@ public class CommitDiffTask extends RepoOpTask implements MAsyncTask.AsyncTaskDo
         } catch (StopTaskException ignored) {
         }
         return false;
+    }
+
+    /**
+     * 结果为空的原因是「浅克隆边界，本地没有父提交可比较」，而不是「这个提交真的没有改动」。
+     * 界面据此显示提示文案，见 {@link #getCommitDiff()}。
+     */
+    public boolean isShallowBoundary() {
+        return mShallowBoundary;
     }
 
     /** old/new 两侧都比：重命名时路径只出现在其中一侧，漏一边就会显示成空 diff。 */

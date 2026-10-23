@@ -67,8 +67,31 @@
     $('body').append(diffBlock);
   };
 
+  // 浅克隆边界：本地没有父提交，算不出 diff（CommitDiffTask 直接返回空结果）。
+  // 这不是错误，也不能渲染成「全部文件新增」，否则整仓 diff 会把页面拖死。
+  var shallowBoundaryNotice = function() {
+    if (!CodeLoader.isShallowBoundary()) {
+      return;
+    }
+    var diffBlock = $('<div>', {
+      "class": 'diff-block'
+    });
+    var noticeBlock = $('<div>', {
+      "class": 'info-block shallow-boundary'
+    });
+    noticeBlock.append($('<div>', {
+      "class": 'shallow-boundary-title'
+    }).text(CodeLoader.getShallowBoundaryTitle()));
+    noticeBlock.append($('<div>', {
+      "class": 'shallow-boundary-hint'
+    }).text(CodeLoader.getShallowBoundaryHint()));
+    diffBlock.append(noticeBlock);
+    $('body').append(diffBlock);
+  };
+
   window.notifyEntriesReady = function() {
     commitInfo();
+    shallowBoundaryNotice();
     var length = CodeLoader.getDiffSize();
     var results = [];
     var ref = length - 1;

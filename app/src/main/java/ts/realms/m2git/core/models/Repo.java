@@ -561,6 +561,23 @@ public class Repo implements Comparable<Repo>, Serializable {
         return revCommit != null && revCommit.getParentCount() == 0;
     }
 
+    /**
+     * 该提交是否是浅克隆的边界提交（本地没有它的父提交）。
+     * <p>
+     * 不能只看 {@link RevCommit#getParentCount()}：JGit 会把浅边界提交的父提交数归零，
+     * 在父提交数上和「真正的首个提交」完全一样，只能查 {@code .git/shallow} 记录。
+     */
+    public boolean isShallowBoundary(String commit) {
+        try {
+            Repository repository = getGit().getRepository();
+            ObjectId id = repository.resolve(commit);
+            return id != null && repository.getObjectDatabase().getShallowCommits().contains(id);
+        } catch (StopTaskException | IOException e) {
+            Timber.e(e, "error reading shallow boundary: %s", commit);
+            return false;
+        }
+    }
+
     public List<Ref> getLocalBranches() {
         try {
             return getGit().branchList().call();
