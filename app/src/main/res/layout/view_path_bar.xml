@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  当前浏览路径条：仓库详情文件页与文件预览页共用。
+
+  显示的是**相对仓库工作区根**的路径（不带前导 /，如 app/src/main/java），
+  点整行复制该文本并弹 toast。仓库根目录没有相对路径可显示 → 由代码置 GONE。
+  背景与 PagerTitleStrip 同色，视觉上并入 tab 表头；放不下时由 PathBarTextView
+  保留「头部 + … + 最后一级」，保证末尾目录完整可见。
+  设计见 docs/repo-detail-path-bar-design.md。
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/pathBar"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?pager_title_strip_background"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?android:attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:minHeight="40dp"
+    android:orientation="horizontal"
+    android:paddingStart="@dimen/general_padding_larger"
+    android:paddingEnd="@dimen/general_padding_larger"
+    android:visibility="gone">
+
+    <ImageView
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:importantForAccessibility="no"
+        android:src="?ic_folder_fl" />
+
+    <ts.realms.m2git.ui.components.views.PathBarTextView
+        android:id="@+id/currentPathText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/general_padding"
+        android:layout_weight="1"
+        android:importantForAccessibility="no"
+        android:singleLine="true"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textSize="@dimen/file_list_header_hint_size" />
+
+    <ImageView
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/ic_menu_copy" />
+
+</LinearLayout>

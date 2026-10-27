@@ -32,6 +32,8 @@
     <string name="action_toggle_drawer">Toggle Drawer</string>
     <string name="action_copy_commit_str">Copy Commit Hash</string>
     <string name="msg_copied_to_clipboard">Copied to clipboard</string>
+    <string name="msg_copied_path">Copied: %1$s</string>
+    <string name="path_bar_content_description">Copy path %1$s</string>
     <string name="action_create_external_repo">Create External Repo</string>
     <string name="action_share_diff">Share diff</string>
     <string name="action_save_diff">Save diff</string>

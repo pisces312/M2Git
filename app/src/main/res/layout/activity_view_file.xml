@@ -4,10 +4,15 @@
     android:layout_height="match_parent"
     tools:context="ts.realms.m2git.ui.components.fragments.ViewFileActivity">
 
+    <!-- 当前文件的相对路径，点整行复制；mRepo == null（私钥 / .git/config）时置 GONE，
+         GONE 的锚点视为零尺寸贴顶，ViewPager 自动回到顶部 -->
+    <include layout="@layout/view_path_bar" />
+
     <androidx.viewpager.widget.ViewPager
         android:id="@+id/pager"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:layout_below="@id/pathBar">
 
         <androidx.viewpager.widget.PagerTitleStrip
             android:id="@+id/pager_title_strip"

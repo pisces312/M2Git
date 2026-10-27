@@ -1,6 +1,9 @@
 package ts.realms.m2git.ui.components.fragments;
 
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -10,6 +13,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ListView;
+
 import androidx.core.content.FileProvider;
 
 import java.io.File;
@@ -21,6 +25,7 @@ import ts.realms.m2git.core.models.Repo;
 import ts.realms.m2git.ui.components.adapters.FilesListAdapter;
 import ts.realms.m2git.ui.components.dialogs.RepoFileOperationDialog;
 import ts.realms.m2git.ui.components.dialogs.SortOptionsDialog;
+import ts.realms.m2git.ui.components.views.PathBarTextView;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity.OnBackClickListener;
 import ts.realms.m2git.ui.screens.repoDetail.RepoDetailFragment;
@@ -35,6 +40,12 @@ public class FilesFragment extends RepoDetailFragment {
 
     private ListView mFilesList;
     private FilesListAdapter mFilesListAdapter;
+
+    /** 当前浏览路径条（fragment_files.xml 里的 include），仓库根目录时 GONE。 */
+    private View mPathBar;
+    private PathBarTextView mPathText;
+    /** 与路径条显示完全一致、点击时复制的内容；null = 当前不可复制（根目录 / 在仓库外）。 */
+    private String mRelativePath;
 
     private File mCurrentDir;
     private File mRootDir;
@@ -66,6 +77,10 @@ public class FilesFragment extends RepoDetailFragment {
         mRootDir = mRepo.getDir();
 
         mFilesList = v.findViewById(R.id.filesList);
+
+        mPathBar = v.findViewById(R.id.pathBar);
+        mPathText = v.findViewById(R.id.currentPathText);
+        mPathBar.setOnClickListener(view -> copyPathToClipboard());
 
         mFilesListAdapter = new FilesListAdapter(getActivity(),
             file -> {
@@ -181,6 +196,52 @@ public class FilesFragment extends RepoDetailFragment {
         if (mFilesListAdapter != null) {
             mFilesListAdapter.setDir(mCurrentDir);
         }
+        // 换目录的唯一入口，路径条只在这里刷新就能覆盖全部路径
+        // （进子目录 / 返回上级 / 搜索页跳目录 / 新建条目 / view 重建恢复）
+        updatePathBar();
+    }
+
+    /**
+     * 路径条显示相对仓库工作区根的路径（不带前导 /，如 {@code app/src/main}），
+     * 点整行复制同一段文本。仓库根目录没有「相对路径」可言 → 整行隐藏，见
+     * docs/repo-detail-path-bar-design.md。一行放不下时由 {@link PathBarTextView}
+     * 保留「头部 + … + 最后一级」，最后一级始终完整可见。
+     */
+    private void updatePathBar() {
+        if (mPathBar == null || mPathText == null) return;
+        mRelativePath = computeRelativePath();
+        if (mRelativePath == null) {
+            mPathBar.setVisibility(View.GONE);
+        } else {
+            mPathText.setPath(mRelativePath);
+            mPathBar.setContentDescription(
+                getString(R.string.path_bar_content_description, mRelativePath));
+            mPathBar.setVisibility(View.VISIBLE);
+        }
+    }
+
+    /** @return 可显示/可复制的相对路径；根目录、仓库外或尚未就绪时返回 null。 */
+    private String computeRelativePath() {
+        if (mRootDir == null || mCurrentDir == null) return null;
+        String relative = FsUtils.getRelativePath(mCurrentDir, mRootDir);
+        // File.toURI() 对存在的目录会补尾 "/"，复制出来不该带
+        while (relative.endsWith("/")) {
+            relative = relative.substring(0, relative.length() - 1);
+        }
+        // 空 = 仓库根；以 "/" 开头 = 不在仓库内；".." 开头 = 仓库外的兄弟目录
+        if (relative.isEmpty() || relative.startsWith("/") || relative.startsWith("..")) {
+            return null;
+        }
+        return relative;
+    }
+
+    private void copyPathToClipboard() {
+        if (mRelativePath == null || mRelativePath.isEmpty()) return;
+        ClipboardManager clipboard = (ClipboardManager) getRawActivity()
+            .getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard == null) return;
+        clipboard.setPrimaryClip(ClipData.newPlainText("mgit", mRelativePath));
+        showToastMessage(getString(R.string.msg_copied_path, mRelativePath));
     }
 
     /**

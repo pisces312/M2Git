@@ -1,5 +1,8 @@
 package ts.realms.m2git.ui.components.fragments;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -20,6 +23,7 @@ import ts.realms.m2git.core.models.Repo;
 import ts.realms.m2git.local.preference.FileViewOptions;
 import ts.realms.m2git.ui.components.dialogs.ChooseLanguageDialog;
 import ts.realms.m2git.ui.components.dialogs.FileViewSettingsDialog;
+import ts.realms.m2git.ui.components.views.PathBarTextView;
 import ts.realms.m2git.ui.screens.commitDiff.CommitsFragment;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity;
 import ts.realms.m2git.ui.viewModels.BaseFragment;
@@ -40,6 +44,10 @@ public class ViewFileActivity extends BaseCompatActivity {
     private TabItemPagerAdapter mTabItemPagerAdapter;
     private ViewFileFragment mFileFragment;
     private int mCurrentTab;
+    /** 顶部路径条与它显示/复制的那段文本；null = 整行隐藏。 */
+    private View mPathBar;
+    private PathBarTextView mPathText;
+    private String mRelativePath;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,8 +79,46 @@ public class ViewFileActivity extends BaseCompatActivity {
         mFileFragment.setArguments(b);
         mActivityMode = extras.getShort(TAG_MODE, TAG_MODE_NORMAL);
         b.putShort(TAG_MODE, mActivityMode);
+        setupPathBar(new File(fileName));
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         setTitle(new File(fileName).getName());
+    }
+
+    /**
+     * 顶部路径条：显示本文件相对仓库工作区根的路径，点整行复制。私钥页与
+     * {@code .git/config} 查看器都不带 Repo（mRepo == null），文件也可能不在仓库内
+     * （搜索结果 / 状态页理论上都在），这几种情况整行隐藏。
+     * 设计见 docs/repo-detail-path-bar-design.md。
+     */
+    private void setupPathBar(File file) {
+        mPathBar = findViewById(R.id.pathBar);
+        mPathText = findViewById(R.id.currentPathText);
+        mRelativePath = mRepo == null ? null : computeRelativePath(file);
+        if (mRelativePath == null) {
+            mPathBar.setVisibility(View.GONE);
+            return;
+        }
+        mPathText.setPath(mRelativePath);
+        mPathBar.setContentDescription(getString(R.string.path_bar_content_description, mRelativePath));
+        mPathBar.setVisibility(View.VISIBLE);
+        mPathBar.setOnClickListener(view -> copyPathToClipboard());
+    }
+
+    private String computeRelativePath(File file) {
+        String relative = FsUtils.getRelativePath(file, mRepo.getDir());
+        // 以 "/" 开头 = 不在仓库内；".." 开头 = 仓库外的兄弟目录
+        if (relative.isEmpty() || relative.startsWith("/") || relative.startsWith("..")) {
+            return null;
+        }
+        return relative;
+    }
+
+    private void copyPathToClipboard() {
+        if (mRelativePath == null || mRelativePath.isEmpty()) return;
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard == null) return;
+        clipboard.setPrimaryClip(ClipData.newPlainText("mgit", mRelativePath));
+        showToastMessage(getString(R.string.msg_copied_path, mRelativePath));
     }
 
     @Override
