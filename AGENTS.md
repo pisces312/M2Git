@@ -12,6 +12,17 @@
   若 bash 报 `$'\r': command not found`，说明文件被检出成 CRLF 行尾，转回 LF 即可。
 - CI（`.github/workflows/build.yml`）跑裸 `assembleDebug`，跟随 app/build.gradle 的默认 ABI 列表。
 
+## Agent 构建回路（2026-10-23）
+
+- 入口：`./scripts/dev.sh <check|apk|install>`（纯英文脚本，Git Bash 下运行）。默认 `--offline --console=plain`；新增/升级依赖时加 `--online`；不要日常 `clean`，确需清理用 `--clean`。
+  - `check` = `:app:compileDebugSources`：资源合并、R 生成、data binding、Java/Kotlin 编译。**不含** AndroidManifest 最终合并、dex、打包、签名——改 `AndroidManifest.xml` 必须用 `apk` 档验证。
+  - `apk` = `:app:assembleDebug`。
+  - `install` = `apk` + `adb install -r`；可用 `ANDROID_SERIAL=...` 指定设备（无线序列号含空格，必须带引号）。
+- `org.gradle.caching=true` 已开启：本地 build cache 在 `GRADLE_USER_HOME` 下，跨 git worktree 共享；前提是同一 commit 且 worktree 干净（`GIT_DIRTY` 是 BuildConfig 输入，脏/净的缓存键不同）。
+- 实测（2026-10-23，暖 daemon，`--offline`）：暖 no-op `assembleDebug` 0.8s；强制全量 41 任务约 6–10s；全新 worktree 冷构建 20s（无 cache）→ 5s（有 cache，24/41 任务命中，含 javac 与 dex）。
+- Gradle daemon 堆 2G（A/B 实测：强制全量 1G 中位 7–8s，2G 中位 5–6s）；Kotlin daemon 仍 1G。
+- 内循环不要跑 `lint`/`test`/`clean`，不要关 configuration cache。
+
 ## 构建栈（2026-10 升级后）
 
 - AGP 9.4.0 + Gradle 9.6.1，均用本地缓存（`GRADLE_USER_HOME=D:\dev\.gradle`）。
