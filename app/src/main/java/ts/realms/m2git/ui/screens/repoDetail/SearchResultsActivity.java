@@ -188,8 +188,7 @@ public class SearchResultsActivity extends BaseCompatActivity {
     /** @return true = 达到结果上限。 */
     private boolean searchFileContent(File file, String needle, boolean caseSensitive) {
         if (file.length() > MAX_SEARCHABLE_SIZE) return false;
-        String mime = FsUtils.getMimeType(file);
-        if (!FsUtils.isTextMimeType(mime) && !file.getName().toLowerCase(Locale.US).endsWith(".md")) {
+        if (!FsUtils.isTextFile(file)) {
             return false;
         }
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(
@@ -239,9 +238,7 @@ public class SearchResultsActivity extends BaseCompatActivity {
             finish();
             return;
         }
-        String mime = FsUtils.getMimeType(result.file);
-        boolean isMdFile = result.file.getName().toLowerCase(Locale.US).endsWith(".md");
-        if (FsUtils.isTextMimeType(mime) || isMdFile) {
+        if (FsUtils.isTextFile(result.file)) {
             Intent intent = new Intent(this, ViewFileActivity.class);
             intent.putExtra(ViewFileActivity.TAG_FILE_NAME, result.file.getAbsolutePath());
             intent.putExtra(Repo.TAG, mRepo);

@@ -12,8 +12,11 @@ import org.apache.commons.io.FileUtils;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 
 import ts.realms.m2git.R;
 import ts.realms.m2git.ui.screens.main.BaseCompatActivity;
@@ -27,6 +30,14 @@ public class FsUtils {
         "yyyyMMdd_HHmmss", Locale.getDefault());
 
     public static final String TEMP_DIR = "temp";
+
+    /**
+     * Plain-text source extensions that Android's MIME table misclassifies as binary/media:
+     * "ts" is an MPEG-2 transport stream, "bat" is application/x-msdownload.
+     * Single source of truth for both {@link #getMimeType(String)} and text-preview routing.
+     */
+    private static final Set<String> MIME_MISCLASSIFIED_TEXT_EXTENSIONS =
+        new HashSet<String>(Arrays.asList("ts", "bat"));
 
     private FsUtils() {
     }
@@ -136,11 +147,11 @@ public class FsUtils {
     }
 
     /**
-     * For some file types, need to override their mimetype to be text/plain
+     * For some file types, need to override their mimetype to be text/plain.
      */
     private static boolean overrideMimeToPlainText(String fileExtension) {
-        // for now only Typescript needs this override as Mime DB uses ".ts" for mpg2 files
-        return "ts".equalsIgnoreCase(fileExtension);
+        return MIME_MISCLASSIFIED_TEXT_EXTENSIONS.contains(
+            fileExtension.toLowerCase(Locale.US));
     }
 
     private static void deleteFileInner(File file) {
@@ -191,5 +202,23 @@ public class FsUtils {
 
     public static boolean isTextMimeType(String mime) {
         return mime.startsWith("text") || mime.equals("application/javascript") || mime.equals("application/json");
+    }
+
+    /**
+     * Whether the file should open in the built-in text viewer instead of being handed
+     * to another app. Single source of truth for FilesFragment, StatusFragment and
+     * SearchResultsActivity (file list, status short-click, search results and content search).
+     *
+     * Files with no/unknown extension keep the historical behaviour: getMimeType() falls
+     * back to text/plain, so Makefile / Dockerfile / .gitignore already count as text
+     * and need no whitelist entry.
+     */
+    public static boolean isTextFile(File file) {
+        return isTextMimeType(getMimeType(file)) || isMarkdownFile(file.getName());
+    }
+
+    private static boolean isMarkdownFile(String name) {
+        String lower = name.toLowerCase(Locale.US);
+        return lower.endsWith(".md") || lower.endsWith(".markdown");
     }
 }

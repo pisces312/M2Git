@@ -270,8 +270,7 @@ public class StatusFragment extends RepoDetailFragment {
             showDiff(statusFile);
             return;
         }
-        String mime = FsUtils.getMimeType(file);
-        if (FsUtils.isTextMimeType(mime)) {
+        if (FsUtils.isTextFile(file)) {
             Intent intent = new Intent(getActivity(), ViewFileActivity.class);
             intent.putExtra(ViewFileActivity.TAG_FILE_NAME, file.getAbsolutePath());
             intent.putExtra(Repo.TAG, mRepo);
