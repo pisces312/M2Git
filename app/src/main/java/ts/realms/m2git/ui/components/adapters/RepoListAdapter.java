@@ -15,6 +15,8 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Parcelable;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
@@ -104,6 +106,17 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
     private List<Tag> mTagRegistry = new ArrayList<>();
     private int mTotalRepoCount = 0;
     private Runnable mOnListRefreshed;
+
+    /**
+     * 滚动锚点记忆：requery 之间接力传递。setAdapter 内部 resetList() 后到下一帧布局之间
+     * 有个窗口，这期间从 ListView 采集锚点只会读到退化值（见 {@link #captureAnchor}），
+     * 所以布局没发生时沿用上一次成功的锚点。
+     */
+    private long mLastAnchorRepoId = RepoDbManager.NO_REPO;
+    private int mLastAnchorTop;
+    /** requery 合并去抖的单槽调度标记，只在主线程读写（见 {@link #scheduleRequery}）。 */
+    private boolean mRequeryScheduled;
+    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
 
     public RepoListAdapter(Context context) {
         super(context, 0);
@@ -249,8 +262,7 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         // 挂过 emptyView 的 ListView 会被打成 GONE（子 View 全部丢弃、firstVisiblePosition 归零），
         // 数据恢复后只能从顶部重新布局。这里自己按「首个可见项的仓库 id + 偏移」复位。
         ListView anchorList = mActivity.findViewById(R.id.repoList);
-        final long anchorRepoId = anchorIdAt(anchorList);
-        final int anchorTop = anchorTopOffset(anchorList);
+        captureAnchor(anchorList);
 
         Cursor cursor = RepoDbManager.queryAllRepo();
         List<Repo> repos = cursor == null ? new ArrayList<>() : Repo.getRepoList(cursor);
@@ -284,10 +296,26 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
         } else {
             notifyDataSetChanged();
         }
-        restoreAnchor(anchorList, anchorRepoId, anchorTop);
+        restoreAnchor(anchorList, mLastAnchorRepoId, mLastAnchorTop);
         if (mOnListRefreshed != null) {
             mOnListRefreshed.run();
         }
+    }
+
+    /**
+     * 采集滚动锚点，只有列表真的布局着（有子 View）才更新记忆值。
+     * <p>
+     * {@code setAdapter(this)} 内部 {@code resetList()} 会移除全部子 View、firstVisiblePosition 归 0，
+     * 而 {@code setSelectionFromTop} 的复位要等下一帧布局才生效 —— 若同一帧内又来一次 requery
+     * （一次 sync 会经写库观察者 + SyncHost.reset() 两条链触发多次），此时从 ListView 读到的是
+     * 退化值「第 0 行 + 偏移 0」，列表会被钉回顶部。布局未发生时不动记忆值即可。
+     */
+    private void captureAnchor(ListView list) {
+        if (list == null || list.getChildCount() <= 0) return;
+        long id = anchorIdAt(list);
+        if (id == RepoDbManager.NO_REPO) return;
+        mLastAnchorRepoId = id;
+        mLastAnchorTop = anchorTopOffset(list);
     }
 
     /** 首个可见项对应的仓库 id：重算后按「行」而不是「下标」复位，内容重排也能对上同一行。 */
@@ -535,12 +563,31 @@ public class RepoListAdapter extends ArrayAdapter<Repo> implements RepoDbManager
 
     @Override
     public void notifyChanged() {
-        mActivity.runOnUiThread(this::requery);
+        scheduleRequery();
     }
 
     /** 供宿主主动刷新（如列表页 sync 结束后更新最新提交信息）；保留当前搜索/筛选态。 */
     public void refresh() {
-        mActivity.runOnUiThread(this::requery);
+        scheduleRequery();
+    }
+
+    /**
+     * 合并去抖的 requery 调度：已排队就不再排，执行时才查库，合并不丢任何更新。
+     * <p>
+     * 一次 sync 会触发 4~6 次刷新（写库观察者 × N + SyncHost.reset() × 2）挤在同一帧里，
+     * 连续 requery 会踩坏滚动锚点（见 {@link #captureAnchor}）。这里收成单槽调度，
+     * 同一帧内的触发只执行最后一次。注意必须 post 到消息队列尾部：runOnUiThread 在主线程
+     * 会立即内联执行，合并不掉链路 A 的重复调用。
+     */
+    private void scheduleRequery() {
+        mActivity.runOnUiThread(() -> {
+            if (mRequeryScheduled) return;
+            mRequeryScheduled = true;
+            mMainHandler.post(() -> {
+                mRequeryScheduled = false;
+                requery();
+            });
+        });
     }
 
     /**

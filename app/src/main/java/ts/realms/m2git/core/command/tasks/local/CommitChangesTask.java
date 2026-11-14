@@ -93,7 +93,8 @@ public class CommitChangesTask extends RepoOpTask implements MAsyncTask.AsyncTas
             setException(e);
             return false;
         }
-        mRepo.updateLatestCommitInfo();
+        // 不再在这里 updateLatestCommitInfo：上面的静态 commit() 已更新过（每次写库都会发
+        // 观察者通知刷列表），再写一次只是多触发一轮同帧刷新。
         return true;
     }
 }

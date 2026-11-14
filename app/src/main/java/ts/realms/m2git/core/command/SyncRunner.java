@@ -181,7 +181,8 @@ public class SyncRunner {
 
     private void push() {
         mActions.add(str(R.string.sync_action_push));
-        mHost.reset();
+        // push 前不再 reset()：提交写库已经发过观察者通知（列表行自己会刷），且此刻全屏进度框
+        // 盖着界面，刷了也看不见；收尾刷新统一交给 showResult() 里那一次。
         // TODO remote指推送到那个远程例如origin。或许需要一个默认的远程名称。
         String remote = mRepo.getRemotes().iterator().next();
         // suppressResultDialog=true：sync 用统一结果对话框，屏蔽 PushTask 自带的 push 结果框，避免双弹。
